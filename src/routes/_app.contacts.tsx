@@ -11,6 +11,7 @@ const CONTACTS = [
   { role: "MCVP Information Management", name: "MCVP IM", email: "im.mc@aiesec.lk", phone: "+94 77 000 0002" },
   { role: "MCP", name: "Member Committee President", email: "mcp@aiesec.lk", phone: "+94 77 000 0003" },
   { role: "EFB Chair", name: "Entity Finance Board", email: "efb@aiesec.lk", phone: "+94 77 000 0004" },
+  { role: "EFB Audit Manager", name: "Audit Review & Verification", email: "audit.efb@aiesec.lk", phone: "+94 77 000 0006" },
   { role: "Finance Support (LCs)", name: "Finance Helpdesk", email: "support.fnl@aiesec.lk", phone: "+94 77 000 0005" },
 ];
 

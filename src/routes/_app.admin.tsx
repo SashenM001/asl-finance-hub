@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { fetchEntities, type Entity } from "@/lib/finance";
 import { useAuth, type AppRole } from "@/lib/auth";
+import { useSheetSync } from "@/hooks/useSheetSync";
+import { AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/admin")({
@@ -30,12 +33,13 @@ interface UserRow {
 
 function AdminPage() {
   const { user } = useAuth();
+  const { sync, loading, result, error } = useSheetSync();
   const [entities, setEntities] = useState<Entity[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
 
   const load = async () => {
-    setLoading(true);
+    setPageLoading(true);
     const [e, p, r] = await Promise.all([
       fetchEntities(),
       supabase.from("profiles").select("user_id,full_name,email,entity_id"),
@@ -46,10 +50,17 @@ function AdminPage() {
     const rolesByUser = new Map<string, AppRole>();
     ((r.data ?? []) as { user_id: string; role: AppRole }[]).forEach((x) => rolesByUser.set(x.user_id, x.role));
     setUsers(profiles.map((p) => ({ ...p, role: rolesByUser.get(p.user_id) ?? null })));
-    setLoading(false);
+    setPageLoading(false);
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleSync = async () => {
+    await sync();
+    toast.success("Google Sheets sync completed! Check results below.");
+    // Optionally reload data after sync
+    setTimeout(() => load(), 1000);
+  };
 
   const setRole = async (uid: string, role: AppRole) => {
     // Remove existing roles, then insert new
@@ -73,7 +84,7 @@ function AdminPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">All users ({users.length})</CardTitle></CardHeader>
         <CardContent>
-          {loading ? <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div> : (
+          {pageLoading ? <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div> : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -113,6 +124,72 @@ function AdminPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Google Sheets Sync</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Automatically fetch and sync financial data from Google Sheets. Requires <code className="text-xs bg-muted px-2 py-1 rounded">VITE_GOOGLE_SHEETS_API_KEY</code> in .env
+          </p>
+          
+          <Button 
+            onClick={handleSync} 
+            disabled={loading}
+            className="w-full"
+          >
+            {loading ? (
+              <>
+                <Clock className="mr-2 h-4 w-4 animate-spin" />
+                Syncing…
+              </>
+            ) : (
+              "Sync from Google Sheets"
+            )}
+          </Button>
+
+          {result && (
+            <Alert variant={result.success ? "default" : "destructive"}>
+              <div className="flex gap-2 items-start">
+                {result.success ? (
+                  <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 mt-0.5" />
+                )}
+                <div className="space-y-1 flex-1">
+                  <AlertDescription className="font-semibold">{result.message}</AlertDescription>
+                  {result.metricsInserted > 0 && (
+                    <AlertDescription className="text-xs">
+                      📊 {result.metricsInserted} metrics
+                    </AlertDescription>
+                  )}
+                  {result.revenueInserted > 0 && (
+                    <AlertDescription className="text-xs">
+                      💰 {result.revenueInserted} revenue entries
+                    </AlertDescription>
+                  )}
+                  {result.costInserted > 0 && (
+                    <AlertDescription className="text-xs">
+                      📉 {result.costInserted} cost entries
+                    </AlertDescription>
+                  )}
+                  {result.errors.length > 0 && (
+                    <AlertDescription className="text-xs">
+                      ⚠️ {result.errors.length} error(s): {result.errors.join("; ")}
+                    </AlertDescription>
+                  )}
+                </div>
+              </div>
+            </Alert>
+          )}
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>

@@ -1,15 +1,9 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 
 export const Route = createFileRoute("/_app")({
-  beforeLoad: async ({ location }) => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) {
-      throw redirect({ to: "/login", search: { redirect: location.href } as never });
-    }
-  },
   component: AppLayout,
 });
 
@@ -22,7 +16,15 @@ function AppLayout() {
 }
 
 function Gate() {
-  const { loading, roles } = useAuth();
+  const { loading, user, roles } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate({ to: "/login", search: { redirect: window.location.pathname } as never });
+    }
+  }, [loading, user, navigate]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -30,6 +32,15 @@ function Gate() {
       </div>
     );
   }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+        Redirecting to login…
+      </div>
+    );
+  }
+
   if (roles.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
@@ -43,5 +54,6 @@ function Gate() {
       </div>
     );
   }
+
   return <AppShell />;
 }

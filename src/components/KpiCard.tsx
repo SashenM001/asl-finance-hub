@@ -23,14 +23,18 @@ export function KpiCard({
     red: "bg-aiesec-red/15 text-aiesec-red",
   };
   return (
-    <Card>
-      <CardContent className="flex items-start justify-between gap-3 p-5">
-        <div className="space-y-1">
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
-          <div className="text-2xl font-semibold">{value}</div>
-          {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
+    <Card className="overflow-hidden">
+      <CardContent className="flex items-start justify-between gap-2 p-4">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+          <div className="text-sm font-bold leading-snug">{value}</div>
+          {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
         </div>
-        {icon && <div className={`flex h-9 w-9 items-center justify-center rounded-md ${accentMap[accent]}`}>{icon}</div>}
+        {icon && (
+          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${accentMap[accent]}`}>
+            {icon}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
