@@ -1,25 +1,19 @@
 /**
  * Google Sheets API v4 Client
- * 
- * Setup required:
- * 1. Create API key: https://console.cloud.google.com/apis/credentials
- * 2. Enable Google Sheets API
- * 3. Add VITE_GOOGLE_SHEETS_API_KEY to .env
+ *
+ * Fetches data from the AIESEC SL finance Google Sheet.
+ * Uses the MASTER_COMBINED_TALL tab (tall/tidy format).
  */
 
-interface SheetRange {
-  values: any[][];
-}
+const SHEET_ID = "11veq_V1Eh4ZZ7PxDKnrc0GAJrXP2HGHbenAIXcFDgw8";
+const DEFAULT_RANGE = "MASTER_COMBINED_TALL!A1:I10000";
 
 /**
  * Fetch raw data from Google Sheet by range
- * @param spreadsheetId - The sheet ID
- * @param range - A1 notation (e.g., "Sheet1!A1:Z1000")
- * @returns Array of rows
  */
 export async function fetchSheetData(
-  spreadsheetId: string,
-  range: string
+  spreadsheetId: string = SHEET_ID,
+  range: string = DEFAULT_RANGE
 ): Promise<any[][]> {
   const apiKey = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
   if (!apiKey) {
@@ -28,27 +22,20 @@ export async function fetchSheetData(
     );
   }
 
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
-  
-  try {
-    const response = await fetch(`${url}?key=${apiKey}`);
-    if (!response.ok) {
-      throw new Error(`Google Sheets API error: ${response.statusText}`);
-    }
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
 
-    const data: SheetRange = await response.json();
-    return data.values || [];
-  } catch (error) {
-    console.error("Failed to fetch sheet data:", error);
-    throw error;
+  const response = await fetch(url);
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Google Sheets API error (${response.status}): ${body}`);
   }
+
+  const data = await response.json();
+  return data.values || [];
 }
 
 /**
  * Fetch multiple ranges from same sheet
- * @param spreadsheetId - The sheet ID
- * @param ranges - Array of A1 notation ranges
- * @returns Map of range -> rows
  */
 export async function fetchSheetDataMultiple(
   spreadsheetId: string,
@@ -62,24 +49,19 @@ export async function fetchSheetDataMultiple(
   const rangesParam = ranges.map(r => encodeURIComponent(r)).join("&ranges=");
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?ranges=${rangesParam}&key=${apiKey}`;
 
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Google Sheets API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const result = new Map<string, any[][]>();
-
-    data.valueRanges?.forEach((range: any, index: number) => {
-      result.set(ranges[index], range.values || []);
-    });
-
-    return result;
-  } catch (error) {
-    console.error("Failed to fetch multiple sheet ranges:", error);
-    throw error;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Google Sheets API error: ${response.statusText}`);
   }
+
+  const data = await response.json();
+  const result = new Map<string, any[][]>();
+
+  data.valueRanges?.forEach((range: any, index: number) => {
+    result.set(ranges[index], range.values || []);
+  });
+
+  return result;
 }
 
 /**
@@ -93,14 +75,9 @@ export async function getSheetMetadata(spreadsheetId: string) {
 
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?key=${apiKey}`;
 
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Google Sheets API error: ${response.statusText}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error("Failed to fetch sheet metadata:", error);
-    throw error;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Google Sheets API error: ${response.statusText}`);
   }
+  return await response.json();
 }

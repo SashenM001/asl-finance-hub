@@ -15,15 +15,15 @@ export interface FilterState {
 
 export function defaultFilters(): FilterState {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
   return {
     entityId: "all",
-    from: start.toISOString().slice(0, 10),
+    from: "2024-02-01",
     to: now.toISOString().slice(0, 10),
     functionCode: "all",
     term: "all",
   };
 }
+
 
 export function Filters({ value, onChange }: { value: FilterState; onChange: (v: FilterState) => void }) {
   const { isLC, isMC, isEFB, profile } = useAuth();
@@ -80,8 +80,8 @@ export function Filters({ value, onChange }: { value: FilterState; onChange: (v:
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All terms</SelectItem>
-            <SelectItem value="Term 1">Term 1</SelectItem>
-            <SelectItem value="Term 2">Term 2</SelectItem>
+            <SelectItem value="24-25">24-25</SelectItem>
+            <SelectItem value="25-26">25-26</SelectItem>
           </SelectContent>
         </Select>
       </div>

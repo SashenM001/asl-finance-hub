@@ -3,11 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Filters, defaultFilters, type FilterState } from "@/components/Filters";
 import { KpiCard } from "@/components/KpiCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchMetrics, fmtCurrency, FUNCTION_CODES, type FunctionCode, type MonthlyMetric } from "@/lib/finance";
+import { fetchMetrics, fmtCurrency, fmtPct, FUNCTION_CODES, type FunctionCode, type MonthlyMetric } from "@/lib/finance";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
-import { Banknote, Wallet, ArrowDownCircle, ArrowUpCircle, Landmark, Coins } from "lucide-react";
+import { Banknote, Wallet, ArrowDownCircle, ArrowUpCircle, Landmark, Coins, TrendingUp, TrendingDown, Activity } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend, PieChart, Pie, Cell } from "recharts";
 
 export const Route = createFileRoute("/_app/lc")({
@@ -65,6 +65,32 @@ function LCDashboard() {
     return { fn, gpm: r > 0 ? ((r - c) / r) * 100 : 0 };
   }), [revenue, costs]);
 
+  // Equity change across the filtered period
+  const equityChange = useMemo(() => {
+    if (metrics.length < 2) return null;
+    const first = metrics[0].equity ?? 0;
+    const last = metrics[metrics.length - 1].equity ?? 0;
+    return first > 0 ? ((last - first) / first) * 100 : 0;
+  }, [metrics]);
+
+  // NPM / GPM for the term
+  const termNpm = useMemo(() => {
+    const rev = metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0);
+    const cost = metrics.reduce((s, m) => s + (m.total_cost ?? 0), 0);
+    return rev > 0 ? ((rev - cost) / rev) * 100 : 0;
+  }, [metrics]);
+
+  // Revenue & Cost distribution %
+  const revDistribution = useMemo(() => {
+    const total = revByFn.reduce((s, r) => s + r.amount, 0);
+    return revByFn.map((r) => ({ fn: r.fn, pct: total > 0 ? (r.amount / total) * 100 : 0 }));
+  }, [revByFn]);
+
+  const costDistribution = useMemo(() => {
+    const total = costByFn.reduce((s, r) => s + r.amount, 0);
+    return costByFn.map((r) => ({ fn: r.fn, pct: total > 0 ? (r.amount / total) * 100 : 0 }));
+  }, [costByFn]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -84,6 +110,12 @@ function LCDashboard() {
             <KpiCard label="Receivables" value={fmtCurrency(latest.receivables)} icon={<ArrowUpCircle className="h-4 w-4" />} accent="orange" />
             <KpiCard label="Liquidity" value={fmtCurrency(latest.liquidity)} icon={<Coins className="h-4 w-4" />} accent="green" />
             <KpiCard label="Equity" value={fmtCurrency(latest.equity)} icon={<Banknote className="h-4 w-4" />} accent="purple" />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <KpiCard label="NPM (Term)" value={fmtPct(termNpm)} icon={<Activity className="h-4 w-4" />} accent="teal" />
+            <KpiCard label="Equity Change" value={fmtPct(equityChange ?? 0)} icon={equityChange !== null && equityChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />} accent={equityChange !== null && equityChange >= 0 ? "green" : "red"} />
+            <KpiCard label="Total Revenue" value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0))} icon={<Banknote className="h-4 w-4" />} accent="green" />
           </div>
 
           <Card>
@@ -180,6 +212,41 @@ function LCDashboard() {
                     <Bar dataKey="gpm" fill="var(--aiesec-teal)" />
                   </BarChart>
                 </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Revenue Distribution (%)</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {revDistribution.map((r) => (
+                    <div key={r.fn} className="flex items-center gap-3">
+                      <span className="w-10 text-xs font-medium">{r.fn}</span>
+                      <div className="flex-1 rounded-full bg-muted h-3 overflow-hidden">
+                        <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(r.pct, 100)}%` }} />
+                      </div>
+                      <span className="w-12 text-xs text-right font-medium">{r.pct.toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Cost Distribution (%)</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {costDistribution.map((r) => (
+                    <div key={r.fn} className="flex items-center gap-3">
+                      <span className="w-10 text-xs font-medium">{r.fn}</span>
+                      <div className="flex-1 rounded-full bg-muted h-3 overflow-hidden">
+                        <div className="h-full rounded-full bg-aiesec-red" style={{ width: `${Math.min(r.pct, 100)}%` }} />
+                      </div>
+                      <span className="w-12 text-xs text-right font-medium">{r.pct.toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </div>

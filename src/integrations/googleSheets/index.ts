@@ -3,7 +3,7 @@
  */
 
 export { fetchSheetData, fetchSheetDataMultiple, getSheetMetadata } from "./client";
-export { mapSheetRowToMetric, mapSheetRowToRevenueStreams, autoDetectColumns, DEFAULT_CONFIG } from "./mapper";
-export { syncSheetData, createSyncEndpoint } from "./sync";
-export type { MapperConfig } from "./mapper";
+export { parseRow, classifyRow, descriptionToFunctionCode, LC_CODE_TO_NAME } from "./mapper";
+export { syncSheetData } from "./sync";
+export type { ParsedRow, RowCategory, BalanceField } from "./mapper";
 export type { SyncResult } from "./sync";
