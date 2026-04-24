@@ -44,6 +44,9 @@ interface GroupData {
   receivables: number;
   equity: number;
   liabilities: number;
+  // CFS cash flow aggregates
+  inflow: number;
+  outflow: number;
   // PnL aggregates
   totalRevenue: number;
   totalCost: number;
@@ -63,6 +66,8 @@ function newGroup(entityName: string, periodMonth: string, term: string): GroupD
     receivables: 0,
     equity: 0,
     liabilities: 0,
+    inflow: 0,
+    outflow: 0,
     totalRevenue: 0,
     totalCost: 0,
     revenue: { iGV: 0, iGT: 0, oGV: 0, oGT: 0, ELD: 0, EwA: 0, BD: 0 },
@@ -154,6 +159,14 @@ export async function syncSheetData(): Promise<SyncResult> {
           }
           break;
 
+        case "cash_flow":
+          if (parsed.balanceField === "cash_inflow") {
+            group.inflow += parsed.amount;
+          } else if (parsed.balanceField === "cash_outflow") {
+            group.outflow += parsed.amount;
+          }
+          break;
+
         case "balance_sheet":
           if (parsed.balanceField === "bank_balance") {
             group.bank_balance += parsed.amount;
@@ -189,8 +202,14 @@ export async function syncSheetData(): Promise<SyncResult> {
         group.totalRevenue > 0
           ? ((group.totalRevenue - group.totalCost) / group.totalRevenue) * 100
           : null;
-      const inflow = group.totalRevenue + group.bank_balance;
-      const outflow = group.totalCost;
+
+      // CASH FLOW FALLBACK LOGIC:
+      // We prefer the actual 'cash_flow' rows (CFS report type) from the Google Sheet.
+      // If none are present (i.e., inflow/outflow are 0), we fall back to a synthetic calculation
+      // based on PnL data: (totalRevenue + bank_balance) for inflow, totalCost for outflow.
+      const inflow = group.inflow > 0 ? group.inflow : (group.totalRevenue + group.bank_balance);
+      const outflow = group.outflow > 0 ? group.outflow : group.totalCost;
+
       const liquidity = group.bank_balance - group.liabilities;
 
       // monthly_metrics

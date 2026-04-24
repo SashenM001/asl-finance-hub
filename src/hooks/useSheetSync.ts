@@ -1,6 +1,6 @@
 /**
  * Hook: useSheetSync
- * 
+ *
  * Provides sync functionality in React components
  */
 
