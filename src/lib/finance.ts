@@ -64,7 +64,8 @@ export function fmtCurrency(n: number | null | undefined) {
   return new Intl.NumberFormat("en-LK", {
     style: "currency",
     currency: "LKR",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(n);
 }
 
@@ -75,5 +76,5 @@ export function fmtNumber(n: number | null | undefined, digits = 1) {
 
 export function fmtPct(n: number | null | undefined) {
   if (n == null) return "—";
-  return `${n.toFixed(1)}%`;
+  return `${n.toFixed(2)}%`;
 }

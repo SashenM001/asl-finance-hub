@@ -142,7 +142,7 @@ function LCDashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
+                  <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                   <Line type="monotone" dataKey="bank" stroke="var(--aiesec-blue)" strokeWidth={2.5} dot={false} name="Bank balance" />
                 </LineChart>
               </ResponsiveContainer>
@@ -158,7 +158,7 @@ function LCDashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
+                    <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                     <Legend />
                     <Bar dataKey="inflow" fill="var(--aiesec-green)" name="Inflow" />
                     <Bar dataKey="outflow" fill="var(--aiesec-red)" name="Outflow" />
@@ -175,7 +175,7 @@ function LCDashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
+                    <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                     <Bar dataKey="net" name="Net">
                       {cashTrend.map((d, i) => (
                         <Cell key={i} fill={d.net >= 0 ? "var(--aiesec-green)" : "var(--aiesec-red)"} />
@@ -224,7 +224,7 @@ function LCDashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="fn" tick={{ fontSize: 11, angle: -45, textAnchor: "end", dy: 8 }} height={60} interval={0} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
+                    <Tooltip formatter={(v) => `${Number(v).toFixed(2)}%`} />
 
                     <Bar dataKey="gpm">
                       {gpmByFn.map((_, i) => (
@@ -248,7 +248,7 @@ function LCDashboard() {
                       <div className="flex-1 rounded-full bg-muted h-3 overflow-hidden">
                         <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(r.pct, 100)}%` }} />
                       </div>
-                      <span className="w-12 text-xs text-right font-medium">{r.pct.toFixed(1)}%</span>
+                      <span className="w-12 text-xs text-right font-medium">{r.pct.toFixed(2)}%</span>
                     </div>
                   ))}
                 </div>
@@ -264,7 +264,7 @@ function LCDashboard() {
                       <div className="flex-1 rounded-full bg-muted h-3 overflow-hidden">
                         <div className="h-full rounded-full bg-aiesec-red" style={{ width: `${Math.min(r.pct, 100)}%` }} />
                       </div>
-                      <span className="w-12 text-xs text-right font-medium">{r.pct.toFixed(1)}%</span>
+                      <span className="w-12 text-xs text-right font-medium">{r.pct.toFixed(2)}%</span>
                     </div>
                   ))}
                 </div>

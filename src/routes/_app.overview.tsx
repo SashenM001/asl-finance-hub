@@ -105,7 +105,7 @@ function OverviewPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
+                    <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                     <Line type="monotone" dataKey="revenue" stroke="var(--aiesec-blue)" strokeWidth={2} dot={false} name="Revenue" />
                     <Line type="monotone" dataKey="cost" stroke="var(--aiesec-red)" strokeWidth={2} dot={false} name="Cost" />
                   </LineChart>
@@ -127,7 +127,7 @@ function OverviewPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
+                    <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                     <Area type="monotone" dataKey="equity" stroke="var(--aiesec-purple)" fill="url(#eq)" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
