@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Filters, defaultFilters, type FilterState } from "@/components/Filters";
 import { KpiCard } from "@/components/KpiCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchMetrics, fmtCurrency, fmtPct, FUNCTION_CODES, type FunctionCode, type MonthlyMetric } from "@/lib/finance";
+import { fetchMetrics, fmtCurrency, fmtPct, fmtNumber, FUNCTION_CODES, type FunctionCode, type MonthlyMetric } from "@/lib/finance";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -108,7 +108,7 @@ function LCDashboard() {
             <KpiCard label="Assets" value={fmtCurrency(latest.assets)} icon={<Landmark className="h-4 w-4" />} accent="teal" />
             <KpiCard label="Liabilities" value={fmtCurrency(latest.liabilities)} icon={<ArrowDownCircle className="h-4 w-4" />} accent="red" />
             <KpiCard label="Receivables" value={fmtCurrency(latest.receivables)} icon={<ArrowUpCircle className="h-4 w-4" />} accent="orange" />
-            <KpiCard label="Liquidity" value={fmtCurrency(latest.liquidity)} icon={<Coins className="h-4 w-4" />} accent="green" />
+            <KpiCard label="Liquidity" value={fmtNumber(latest.liquidity, 2)} icon={<Coins className="h-4 w-4" />} accent="green" />
             <KpiCard label="Equity" value={fmtCurrency(latest.equity)} icon={<Banknote className="h-4 w-4" />} accent="purple" />
           </div>
 

@@ -210,7 +210,13 @@ export async function syncSheetData(): Promise<SyncResult> {
       const inflow = group.inflow > 0 ? group.inflow : (group.totalRevenue + group.bank_balance);
       const outflow = group.outflow > 0 ? group.outflow : group.totalCost;
 
-      const liquidity = group.bank_balance - group.liabilities;
+      //const liquidity = group.bank_balance - group.liabilities;
+
+      // Corrected Liquidity Ratio: (Bank Balance + Receivables) / Liabilities
+      const totalLiquidAssets = group.bank_balance + group.receivables;
+      const liquidity = group.liabilities > 0
+        ? +(totalLiquidAssets / group.liabilities).toFixed(2)
+        : totalLiquidAssets > 0 ? 999 : 0;
 
       // monthly_metrics
       metricsPayload.push({
