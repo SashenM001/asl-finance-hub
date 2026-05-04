@@ -143,10 +143,10 @@ const GFB_DICTIONARY: Record<string, MappingDefinition> = {
   "7109-EA-RV-LC": { category: "revenue", functionCode: "EwA", balanceField: null }, // LC | EwA Revenues: Entity EwA Initiatives Participant Fee
   "7110-EA-RV-LC": { category: "revenue", functionCode: "EwA", balanceField: null }, // LC | EwA Revenues: Entity EwA Initiatives Partner Fee
   "7111-EA-RV-LC": { category: "revenue", functionCode: "EwA", balanceField: null }, // LC | EwA Revenues: Local Volunteer
-  "7301-MG-RV-LC": { category: "revenue", functionCode: "BD", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (National+Local) Participant Fee
-  "7302-MG-RV-LC": { category: "revenue", functionCode: "BD", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (National+Local) Partner Fee
-  "7303-MG-RV-LC": { category: "revenue", functionCode: "BD", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (International) Participant Fee
-  "7304-MG-RV-LC": { category: "revenue", functionCode: "BD", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (International) Partner Fee
+  "7301-MG-RV-LC": { category: "revenue", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (National+Local) Participant Fee
+  "7302-MG-RV-LC": { category: "revenue", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (National+Local) Partner Fee
+  "7303-MG-RV-LC": { category: "revenue", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (International) Participant Fee
+  "7304-MG-RV-LC": { category: "revenue", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (International) Partner Fee
   "7305-MG-RV-LC": { category: "revenue", functionCode: "BD", balanceField: null }, // LC | Project Mgt Revenue: Digital Engagement Participant Fee
   "7306-MG-RV-LC": { category: "revenue", functionCode: "BD", balanceField: null }, // LC | Project Mgt Revenue: Digital Engagement Partner Fee
   "7307-MG-RV-LC": { category: "revenue", functionCode: "BD", balanceField: null }, // LC | Project Mgt Revenue: Other Portfolio & Initiatives Partner Fee
@@ -180,21 +180,21 @@ const GFB_DICTIONARY: Record<string, MappingDefinition> = {
   "7704-EA-CO-LC": { category: "cost", functionCode: "EwA", balanceField: null }, // LC | EwA Cost: Heading for the Future Marketing
   "7705-EA-CO-LC": { category: "cost", functionCode: "EwA", balanceField: null }, // LC | EwA Cost: Entity EwA Initiatives
   "7706-EA-CO-LC": { category: "cost", functionCode: "EwA", balanceField: null }, // LC | EwA Costs: Local Volunteer
-  "7901-MG-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Project Mgt Costs: Conference and Meetings (National+Local)
-  "7902-MG-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Project Mgt Costs: Conference and Meetings (International)
+  "7901-MG-CO-LC": { category: "cost", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Costs: Conference and Meetings (National+Local)
+  "7902-MG-CO-LC": { category: "cost", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Costs: Conference and Meetings (International)
   "7903-MG-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Project Mgt Costs: Digital Engagement
   "7904-MG-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Project Mgt Costs: Other Portfolio & Initiatives
   "7905-MG-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Project Mgt Costs: Partnership Logistics
   "8001-FN-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Bank Fees
   "8002-FN-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Taxes
-  "8101-OH-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Overhead Costs: (Office)
-  "8102-OH-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Overhead Costs: (HR)
-  "8103-OH-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Overhead Costs: (Legality)
-  "8104-OH-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Overhead Costs: (Planning & LnD)
-  "8105-OH-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Overhead Costs: Other Marketing
-  "8106-OH-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Overhead Costs: PR & Branding Costs
-  "8108-OH-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Overhead Costs: (National Conf. Travelling)
-  "8109-OH-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Overhead Costs: (International Conf. Travelling + Visa)
+  "8101-OH-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Overhead Costs: (Office)
+  "8102-OH-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Overhead Costs: (HR)
+  "8103-OH-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Overhead Costs: (Legality)
+  "8104-OH-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Overhead Costs: (Planning & LnD)
+  "8105-OH-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Overhead Costs: Other Marketing
+  "8106-OH-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Overhead Costs: PR & Branding Costs
+  "8108-OH-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Overhead Costs: (National Conf. Travelling)
+  "8109-OH-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Overhead Costs: (International Conf. Travelling + Visa)
   "8201-IN-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Entity Affiliation Fee Costs: iGV Royalty
   "8202-IN-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Entity Affiliation Fee Costs: oGV Royalty
   "8203-IN-CO-LC": { category: "cost", functionCode: "BD", balanceField: null }, // LC | Entity Affiliation Fee Costs: iGTa Royalty

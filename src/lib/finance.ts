@@ -29,18 +29,20 @@ export interface MonthlyMetric {
   ap_ranking: number | null;
 }
 
-export type FunctionCode = "iGV" | "iGT" | "oGV" | "oGT" | "ELD" | "EwA" | "BD";
+export type FunctionCode = "iGV" | "iGT" | "oGV" | "oGT" | "ELD" | "EwA" | "BD" | "NMF" | "Conference";
 
-export const FUNCTION_CODES: FunctionCode[] = ["iGV", "iGT", "oGV", "oGT", "ELD", "EwA", "BD"];
+export const FUNCTION_CODES: FunctionCode[] = ["iGV", "iGT", "oGV", "oGT", "ELD", "EwA", "BD", "NMF", "Conference"];
 
 export const FUNCTION_COLORS: Record<FunctionCode, string> = {
-  iGV: "var(--aiesec-blue)",
-  iGT: "var(--aiesec-teal)",
-  oGV: "var(--aiesec-orange)",
-  oGT: "var(--aiesec-red)",
-  ELD: "var(--aiesec-purple)",
-  EwA: "var(--aiesec-green)",
-  BD: "var(--aiesec-yellow)",
+  "iGV": "var(--aiesec-blue)",
+  "iGT": "var(--aiesec-teal)",
+  "oGV": "var(--aiesec-orange)",
+  "oGT": "var(--aiesec-red)",
+  "ELD": "var(--aiesec-purple)",
+  "EwA": "var(--aiesec-green)",
+  "BD": "var(--aiesec-yellow)",
+  "NMF": "var(--aiesec-yellow)",
+  "Conference": "var(--aiesec-blue)",
 };
 
 export async function fetchEntities(): Promise<Entity[]> {
@@ -62,7 +64,8 @@ export function fmtCurrency(n: number | null | undefined) {
   return new Intl.NumberFormat("en-LK", {
     style: "currency",
     currency: "LKR",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(n);
 }
 
@@ -73,5 +76,5 @@ export function fmtNumber(n: number | null | undefined, digits = 1) {
 
 export function fmtPct(n: number | null | undefined) {
   if (n == null) return "—";
-  return `${n.toFixed(1)}%`;
+  return `${n.toFixed(2)}%`;
 }

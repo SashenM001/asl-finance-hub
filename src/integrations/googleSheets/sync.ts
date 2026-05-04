@@ -70,8 +70,8 @@ function newGroup(entityName: string, periodMonth: string, term: string): GroupD
     outflow: 0,
     totalRevenue: 0,
     totalCost: 0,
-    revenue: { iGV: 0, iGT: 0, oGV: 0, oGT: 0, ELD: 0, EwA: 0, BD: 0 },
-    cost: { iGV: 0, iGT: 0, oGV: 0, oGT: 0, ELD: 0, EwA: 0, BD: 0 },
+    revenue: { "iGV": 0, "iGT": 0, "oGV": 0, "oGT": 0, "ELD": 0, "EwA": 0, "BD": 0, "NMF": 0, "Conference": 0 },
+    cost: { "iGV": 0, "iGT": 0, "oGV": 0, "oGT": 0, "ELD": 0, "EwA": 0, "BD": 0, "NMF": 0, "Conference": 0 },
   };
 }
 
