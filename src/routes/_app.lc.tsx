@@ -135,7 +135,7 @@ function LCDashboard() {
           </div>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Bank balance trend</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Cash and Cash Equivalent trend</CardTitle></CardHeader>
             <CardContent className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={cashTrend}>

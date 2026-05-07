@@ -384,7 +384,22 @@ export type Database = {
     }
     Enums: {
       app_role: "lc_user" | "mc_user" | "efb_user"
-      function_code: "iGV" | "iGT" | "oGV" | "oGT" | "ELD" | "EwA" | "BD"
+      function_code:
+        | "iGV"
+        | "iGT"
+        | "oGV"
+        | "oGT"
+        | "ELD"
+        | "EwA"
+        | "BD"
+        | "iGTa"
+        | "iGTe"
+        | "oGTa"
+        | "oGTe"
+        | "Conference"
+        | "NMF"
+        | "Miscellaneous"
+        | "National Conference Delegation"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -513,7 +528,23 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["lc_user", "mc_user", "efb_user"],
-      function_code: ["iGV", "iGT", "oGV", "oGT", "ELD", "EwA", "BD"],
+      function_code: [
+        "iGV",
+        "iGT",
+        "oGV",
+        "oGT",
+        "ELD",
+        "EwA",
+        "BD",
+        "iGTa",
+        "iGTe",
+        "oGTa",
+        "oGTe",
+        "Conference",
+        "NMF",
+        "Miscellaneous",
+        "National Conference Delegation",
+      ],
     },
   },
 } as const
