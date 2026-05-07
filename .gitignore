@@ -32,3 +32,6 @@ dist-ssr
 *.sw?
 
 *.env*
+
+# Supabase
+supabase/.temp/
