@@ -86,7 +86,7 @@ function LCDashboard() {
     if (metrics.length < 2) return null;
     const first = metrics[0].equity ?? 0;
     const last = metrics[metrics.length - 1].equity ?? 0;
-    return first > 0 ? ((last - first) / first) * 100 : 0;
+    return last > 0 ? ((last - first) / last) * 100 : 0;
   }, [metrics]);
 
   // NPM / GPM for the term
