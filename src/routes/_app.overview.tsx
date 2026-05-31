@@ -40,14 +40,12 @@ function OverviewPage() {
     const latest = metrics[metrics.length - 1];
     const totalRevenue = metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0);
     const totalCost = metrics.reduce((s, m) => s + (m.total_cost ?? 0), 0);
-    const npm = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
     const gpm = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
     const equityFirst = metrics[0].equity ?? 0;
     const equityLast = latest.equity ?? 0;
     const equityGrowth = equityLast > 0 ? ((equityLast - equityFirst) / equityLast) * 100 : 0;
     return {
       totalRevenue,
-      npm,
       gpm,
       equityGrowth,
       health: latest.finance_health_index ?? 0,
@@ -79,7 +77,7 @@ function OverviewPage() {
         <h2 className="text-2xl font-semibold">National Overview</h2>
         <p className="text-sm text-muted-foreground">National finance KPIs and trends.</p>
       </div>
-      <Filters value={filters} onChange={setFilters} />
+      <Filters value={filters} onChange={setFilters} showFunctionFilter={false} />
 
       {loading && <div className="text-sm text-muted-foreground">Loading metrics…</div>}
 
