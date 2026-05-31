@@ -42,6 +42,11 @@ interface GroupData {
   bank_balance: number;
   assets: number;
   receivables: number;
+  // MoCR-specific fields: isolated from assets to allow precise numerator calculation.
+  // These are NOT added into group.assets to avoid double-counting.
+  // Frontend adds them back for Total Assets display: assets + petty_cash + reserves + bank_balance + receivables
+  petty_cash: number;
+  reserves: number;
   equity: number;
   liabilities: number;
   // CFS cash flow aggregates
@@ -64,6 +69,8 @@ function newGroup(entityName: string, periodMonth: string, term: string): GroupD
     bank_balance: 0,
     assets: 0,
     receivables: 0,
+    petty_cash: 0,
+    reserves: 0,
     equity: 0,
     liabilities: 0,
     inflow: 0,
@@ -174,6 +181,10 @@ export async function syncSheetData(): Promise<SyncResult> {
             group.assets += parsed.amount;
           } else if (parsed.balanceField === "receivables") {
             group.receivables += parsed.amount;
+          } else if (parsed.balanceField === "petty_cash") {
+            group.petty_cash += parsed.amount;
+          } else if (parsed.balanceField === "reserves") {
+            group.reserves += parsed.amount;
           } else if (parsed.balanceField === "equity") {
             group.equity += parsed.amount;
           } else if (parsed.balanceField === "liabilities") {
@@ -227,6 +238,8 @@ export async function syncSheetData(): Promise<SyncResult> {
         inflow: inflow || null,
         outflow: outflow || null,
         assets: group.assets || null,
+        petty_cash: group.petty_cash || null,
+        reserves: group.reserves || null,
         liabilities: group.liabilities || null,
         receivables: group.receivables || null,
         liquidity: liquidity || null,

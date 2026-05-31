@@ -100,6 +100,23 @@ function LCDashboard() {
     return costByFn.map((r) => ({ fn: r.fn, pct: total > 0 ? (r.amount / total) * 100 : 0 }));
   }, [costByFn]);
 
+  // MoCR = (bank_balance + petty_cash + reserves - liabilities) / avg monthly cost over last 12 months.
+  // petty_cash (8502) and reserves (8602) are stored as separate DB columns to allow precise numerator isolation.
+  // Total Assets on the frontend sums all five buckets (assets + bank_balance + receivables + petty_cash + reserves)
+  // without any data duplication in the backend.
+  const mocr = useMemo(() => {
+    if (!latest) return null;
+    const numerator =
+      (latest.bank_balance ?? 0) +
+      (latest.petty_cash ?? 0) +
+      (latest.reserves ?? 0) -
+      (latest.liabilities ?? 0);
+    const last12 = metrics.slice(-12);
+    const totalCost12m = last12.reduce((s, m) => s + (m.total_cost ?? 0), 0);
+    const avgMonthlyCost = last12.length > 0 ? totalCost12m / last12.length : 0;
+    return avgMonthlyCost > 0 ? +(numerator / avgMonthlyCost).toFixed(2) : null;
+  }, [metrics, latest]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -114,18 +131,23 @@ function LCDashboard() {
         <>
           <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
             <KpiCard label="Bank Balance" value={fmtCurrency(latest.bank_balance)} icon={<Wallet className="h-4 w-4" />} accent="primary" />
-            <KpiCard label="Total Assets" value={fmtCurrency((latest.assets ?? 0) + (latest.bank_balance ?? 0) + (latest.receivables ?? 0))} icon={<Landmark className="h-4 w-4" />} accent="teal" />
+            {/* Total Assets = assets + bank_balance + receivables + petty_cash + reserves.
+                petty_cash (8502) and reserves (8602) are stored in separate DB columns (not merged into assets)
+                to allow the MoCR numerator to be calculated precisely. No double-counting in the backend. */}
+            <KpiCard label="Total Assets" value={fmtCurrency((latest.assets ?? 0) + (latest.bank_balance ?? 0) + (latest.receivables ?? 0) + (latest.petty_cash ?? 0) + (latest.reserves ?? 0))} icon={<Landmark className="h-4 w-4" />} accent="teal" />
             <KpiCard label="Liabilities" value={fmtCurrency(latest.liabilities)} icon={<ArrowDownCircle className="h-4 w-4" />} accent="red" />
             <KpiCard label="Receivables" value={fmtCurrency(latest.receivables)} icon={<ArrowUpCircle className="h-4 w-4" />} accent="orange" />
             <KpiCard label="Liquidity" value={fmtNumber(latest.liquidity, 2)} icon={<Coins className="h-4 w-4" />} accent="green" />
             <KpiCard label="Equity" value={fmtCurrency(latest.equity)} icon={<Banknote className="h-4 w-4" />} accent="purple" />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             {/* <KpiCard label="NPM (Term)" value={fmtPct(termNpm)} icon={<Activity className="h-4 w-4" />} accent="teal" /> */}
             <KpiCard label="Equity Change" value={fmtPct(equityChange ?? 0)} icon={equityChange !== null && equityChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />} accent={equityChange !== null && equityChange >= 0 ? "green" : "red"} />
             <KpiCard label="Total Revenue" value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0))} icon={<Banknote className="h-4 w-4" />} accent="green" />
             <KpiCard label="Total Cost" value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_cost ?? 0), 0))} icon={<ArrowDownCircle className="h-4 w-4" />} accent="red" />
+            {/* MoCR = (bank_balance + petty_cash + reserves - liabilities) / avg monthly cost (last 12 months) */}
+            <KpiCard label="MoCR" value={mocr !== null ? `${fmtNumber(mocr, 2)}x` : "—"} icon={<Activity className="h-4 w-4" />} accent="teal" />
           </div>
 
           <Card>

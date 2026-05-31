@@ -28,6 +28,8 @@ export type BalanceField =
   | "bank_balance"
   | "assets"
   | "receivables"
+  | "petty_cash"   // 8502-CA-AS-LC: isolated for MoCR numerator (not merged into assets)
+  | "reserves"     // 8602-LA-AS-LC: isolated for MoCR numerator (not merged into assets)
   | "equity"
   | "liabilities"
   | "cash_inflow"
@@ -216,9 +218,9 @@ const GFB_DICTIONARY: Record<string, MappingDefinition> = {
 
   // === BALANCE SHEET: ASSETS, LIABILITIES, EQUITY ===
   "8501-CA-AS-LC": { category: "balance_sheet", functionCode: null, balanceField: "bank_balance" }, // LC | Bank Account
-  "8502-CA-AS-LC": { category: "balance_sheet", functionCode: null, balanceField: "assets" }, // LC | Petty Cash
+  "8502-CA-AS-LC": { category: "balance_sheet", functionCode: null, balanceField: "petty_cash" }, // LC | Petty Cash — isolated field for MoCR numerator; included in Total Assets on frontend
   "8601-LA-AS-LC": { category: "balance_sheet", functionCode: null, balanceField: "assets" }, // LC | Long Term Assets (Property)
-  "8602-LA-AS-LC": { category: "balance_sheet", functionCode: null, balanceField: "assets" }, // LC | Long Term Assets (Reserves)
+  "8602-LA-AS-LC": { category: "balance_sheet", functionCode: null, balanceField: "reserves" }, // LC | Long Term Assets (Reserves) — isolated field for MoCR numerator; included in Total Assets on frontend
   "8603-LA-AS-LC": { category: "balance_sheet", functionCode: null, balanceField: "assets" }, // LC | Long Term Assets (Financial Property)
   "8604-LA-AS-LC": { category: "balance_sheet", functionCode: null, balanceField: "assets" }, // LC | Long Term Assets (Other)
   "8605-IN-AS-LC": { category: "balance_sheet", functionCode: null, balanceField: "receivables" }, // LC | Long Term Receivables: Internal (AIESEC Entities)
