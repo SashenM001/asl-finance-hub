@@ -9,9 +9,9 @@ export const Route = createFileRoute("/_app/contacts")({
 const CONTACTS = [
   { role: "MCVP Finance & Legal", name: "MCVP FnL", email: "fnl.mc@aiesec.lk", phone: "+94 77 000 0001" },
   { role: "MCVP Information Management", name: "MCVP IM", email: "im.mc@aiesec.lk", phone: "+94 77 000 0002" },
-  { role: "MCP", name: "Member Committee President", email: "mcp@aiesec.lk", phone: "+94 77 000 0003" },
   { role: "EFB Chair", name: "Entity Finance Board", email: "efb@aiesec.lk", phone: "+94 77 000 0004" },
-  { role: "EFB Audit Manager", name: "Audit Review & Verification", email: "audit.efb@aiesec.lk", phone: "+94 77 000 0006" },
+  { role: "EFB Technical Support", name: "Gagana", email: "gagana.efb@aiesec.lk", phone: "+94 77 000 0007" },
+  { role: "EFB Finance Support", name: "Thisaru", email: "thisaru.efb@aiesec.lk", phone: "+94 77 000 0008" },
   { role: "Finance Support (LCs)", name: "Finance Helpdesk", email: "support.fnl@aiesec.lk", phone: "+94 77 000 0005" },
 ];
 
