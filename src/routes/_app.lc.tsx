@@ -62,20 +62,72 @@ function LCDashboard() {
     })();
   }, [filters, profile?.entity_id, isLC, isMC, isEFB]);
 
-  const latest = metrics[metrics.length - 1];
+  const aggregatedMetrics = useMemo(() => {
+    const byMonth = new Map<string, {
+      period_month: string;
+      bank_balance: number;
+      assets: number;
+      liabilities: number;
+      receivables: number;
+      equity: number;
+      inflow: number;
+      outflow: number;
+      total_revenue: number;
+      total_cost: number;
+    }>();
 
-  const cashTrend = useMemo(() => metrics.map((m) => ({
+    metrics.forEach((m) => {
+      const k = m.period_month;
+      const cur = byMonth.get(k) ?? {
+        period_month: k,
+        bank_balance: 0,
+        assets: 0,
+        liabilities: 0,
+        receivables: 0,
+        equity: 0,
+        inflow: 0,
+        outflow: 0,
+        total_revenue: 0,
+        total_cost: 0,
+      };
+      cur.bank_balance += m.bank_balance ?? 0;
+      cur.assets += m.assets ?? 0;
+      cur.liabilities += m.liabilities ?? 0;
+      cur.receivables += m.receivables ?? 0;
+      cur.equity += m.equity ?? 0;
+      cur.inflow += m.inflow ?? 0;
+      cur.outflow += m.outflow ?? 0;
+      cur.total_revenue += m.total_revenue ?? 0;
+      cur.total_cost += m.total_cost ?? 0;
+      byMonth.set(k, cur);
+    });
+
+    return Array.from(byMonth.values())
+      .sort((a, b) => a.period_month.localeCompare(b.period_month))
+      .map((m) => {
+        const liquidity = m.liabilities > 0 ? (m.bank_balance + m.receivables) / m.liabilities : 0;
+        return {
+          ...m,
+          liquidity,
+        };
+      });
+  }, [metrics]);
+
+  const latest = aggregatedMetrics[aggregatedMetrics.length - 1];
+
+  const cashTrend = useMemo(() => aggregatedMetrics.map((m) => ({
     label: format(parseISO(m.period_month), "MMM yy"),
     bank: m.bank_balance ?? 0,
     inflow: m.inflow ?? 0,
     outflow: m.outflow ?? 0,
     net: (m.inflow ?? 0) - (m.outflow ?? 0),
-  })), [metrics]);
+  })), [aggregatedMetrics]);
 
   const revByFn = useMemo(() => aggregateByFn(revenue, filters.functionCode), [revenue, filters.functionCode]);
-  const costByFn = useMemo(() => aggregateByFn(costs, filters.functionCode), [costs, filters.functionCode]);
+  const revByFnPie = useMemo(() => revByFn.filter((r) => r.fn !== "ELD" && r.fn !== "NMF" && r.fn !== "National Conference Delegation"), [revByFn]);
+  const costByFn = useMemo(() => aggregateByFn(costs, filters.functionCode).filter((c) => c.fn !== "ELD"), [costs, filters.functionCode]);
 
-  const gpmByFn = useMemo(() => FUNCTION_CODES.map((fn) => {
+  const gpmByFn = useMemo(() => FUNCTION_CODES.filter((fn) => fn !== "ELD" && fn !== "NMF" && fn !== "National Conference Delegation").map((fn) => {
     const r = revenue.filter((x) => x.function_code === fn).reduce((s, x) => s + Number(x.amount), 0);
     const c = costs.filter((x) => x.function_code === fn).reduce((s, x) => s + Number(x.amount), 0);
     return { fn, gpm: r > 0 ? ((r - c) / r) * 100 : 0 };
@@ -83,16 +135,17 @@ function LCDashboard() {
 
   // Equity change across the filtered period
   const equityChange = useMemo(() => {
-    if (metrics.length < 2) return null;
-    const first = metrics[0].equity ?? 0;
-    const last = metrics[metrics.length - 1].equity ?? 0;
+    if (aggregatedMetrics.length < 2) return null;
+    const first = aggregatedMetrics[0].equity ?? 0;
+    const last = aggregatedMetrics[aggregatedMetrics.length - 1].equity ?? 0;
     return last > 0 ? ((last - first) / last) * 100 : 0;
-  }, [metrics]);
+  }, [aggregatedMetrics]);
 
   // Revenue & Cost distribution %
   const revDistribution = useMemo(() => {
-    const total = revByFn.reduce((s, r) => s + r.amount, 0);
-    return revByFn.map((r) => ({ fn: r.fn, pct: total > 0 ? (r.amount / total) * 100 : 0 }));
+    const filtered = revByFn.filter((r) => r.fn !== "ELD" && r.fn !== "NMF" && r.fn !== "National Conference Delegation");
+    const total = filtered.reduce((s, r) => s + r.amount, 0);
+    return filtered.map((r) => ({ fn: r.fn, pct: total > 0 ? (r.amount / total) * 100 : 0 }));
   }, [revByFn]);
 
   const costDistribution = useMemo(() => {
@@ -209,8 +262,8 @@ function LCDashboard() {
               <CardContent className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={revByFn} dataKey="amount" nameKey="fn" innerRadius={50} outerRadius={90}>
-                      {revByFn.map((_, i) => <Cell key={i} fill={FN_COLORS[i % FN_COLORS.length]} />)}
+                    <Pie data={revByFnPie} dataKey="amount" nameKey="fn" innerRadius={50} outerRadius={90}>
+                      {revByFnPie.map((_, i) => <Cell key={i} fill={FN_COLORS[i % FN_COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                     <Legend content={<CustomLegend />} />
