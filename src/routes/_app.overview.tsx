@@ -76,7 +76,7 @@ function OverviewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Global Overview</h2>
+        <h2 className="text-2xl font-semibold">National Overview</h2>
         <p className="text-sm text-muted-foreground">National finance KPIs and trends.</p>
       </div>
       <Filters value={filters} onChange={setFilters} />
