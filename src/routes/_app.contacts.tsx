@@ -7,12 +7,12 @@ export const Route = createFileRoute("/_app/contacts")({
 });
 
 const CONTACTS = [
-  { role: "MCVP Finance & Legal", name: "MCVP FnL", email: "fnl.mc@aiesec.lk", phone: "+94 77 000 0001" },
-  { role: "MCVP Information Management", name: "MCVP IM", email: "im.mc@aiesec.lk", phone: "+94 77 000 0002" },
-  { role: "EFB Chair", name: "Entity Finance Board", email: "efb@aiesec.lk", phone: "+94 77 000 0004" },
-  { role: "EFB Technical Support", name: "Gagana", email: "gagana.efb@aiesec.lk", phone: "+94 77 000 0007" },
-  { role: "EFB Finance Support", name: "Thisaru", email: "thisaru.efb@aiesec.lk", phone: "+94 77 000 0008" },
-  { role: "Finance Support (LCs)", name: "Finance Helpdesk", email: "support.fnl@aiesec.lk", phone: "+94 77 000 0005" },
+  { role: "MCVP Finance & Legal", name: "Agana", email: "agana.dassanayake@aiesec.net", phone: "+94 77 514 0747" },
+  { role: "MCVP Information Management", name: "Dinuka", email: "dinuka.avinash@aiesec.net", phone: "+94 77 548 6820" },
+  { role: "EFB Chair", name: "Tanuri", email: "tanuri.chandrasiri@aiesec.net", phone: "+94 76 977 9699" },
+  { role: "EFB Tech Support", name: "Gagana", email: "gaganaushan@aiesec.net", phone: "+94 77 365 0313" },
+  { role: "EFB Finance Support", name: "Thisura", email: "thisura.daksina@aiesec.net", phone: "+94 71 679 3977" },
+  { role: "</Dev.Team> Support", name: "Amzal", email: "amzal.foumi@aiesec.net", phone: "+94 70 158 8018" },
 ];
 
 function ContactsPage() {
@@ -38,14 +38,14 @@ function ContactsPage() {
         ))}
       </div>
 
-      <Card>
+      {/* <Card>
         <CardHeader><CardTitle className="text-base">About roles</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p><strong className="text-foreground">LC user</strong> — LCVP Finance &amp; Legal / LCP. Sees only their own entity's data.</p>
           <p><strong className="text-foreground">MC user</strong> — MCVP FnL / MCVP IM / MCP. Full national visibility &amp; admin.</p>
           <p><strong className="text-foreground">EFB user</strong> — Audit role. Read-only across all entities, can record audit scores and reviews.</p>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }
