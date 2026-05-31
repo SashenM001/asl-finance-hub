@@ -25,7 +25,7 @@ export function defaultFilters(): FilterState {
 }
 
 
-export function Filters({ value, onChange }: { value: FilterState; onChange: (v: FilterState) => void }) {
+export function Filters({ value, onChange, showFunctionFilter = true }: { value: FilterState; onChange: (v: FilterState) => void; showFunctionFilter?: boolean }) {
   const { isLC, isMC, isEFB, profile } = useAuth();
   const [entities, setEntities] = useState<Entity[]>([]);
 
@@ -64,16 +64,18 @@ export function Filters({ value, onChange }: { value: FilterState; onChange: (v:
         <Label className="text-xs">To</Label>
         <Input type="date" value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} />
       </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Function</Label>
-        <Select value={value.functionCode} onValueChange={(v) => onChange({ ...value, functionCode: v as FunctionCode | "all" })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All functions</SelectItem>
-            {FUNCTION_CODES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+      {showFunctionFilter && (
+        <div className="space-y-1">
+          <Label className="text-xs">Function</Label>
+          <Select value={value.functionCode} onValueChange={(v) => onChange({ ...value, functionCode: v as FunctionCode | "all" })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All functions</SelectItem>
+              {FUNCTION_CODES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-1">
         <Label className="text-xs">Term</Label>
         <Select value={value.term} onValueChange={(v) => onChange({ ...value, term: v })}>
