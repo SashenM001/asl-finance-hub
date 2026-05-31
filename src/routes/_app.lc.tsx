@@ -62,15 +62,66 @@ function LCDashboard() {
     })();
   }, [filters, profile?.entity_id, isLC, isMC, isEFB]);
 
-  const latest = metrics[metrics.length - 1];
+  const aggregatedMetrics = useMemo(() => {
+    const byMonth = new Map<string, {
+      period_month: string;
+      bank_balance: number;
+      assets: number;
+      liabilities: number;
+      receivables: number;
+      equity: number;
+      inflow: number;
+      outflow: number;
+      total_revenue: number;
+      total_cost: number;
+    }>();
 
-  const cashTrend = useMemo(() => metrics.map((m) => ({
+    metrics.forEach((m) => {
+      const k = m.period_month;
+      const cur = byMonth.get(k) ?? {
+        period_month: k,
+        bank_balance: 0,
+        assets: 0,
+        liabilities: 0,
+        receivables: 0,
+        equity: 0,
+        inflow: 0,
+        outflow: 0,
+        total_revenue: 0,
+        total_cost: 0,
+      };
+      cur.bank_balance += m.bank_balance ?? 0;
+      cur.assets += m.assets ?? 0;
+      cur.liabilities += m.liabilities ?? 0;
+      cur.receivables += m.receivables ?? 0;
+      cur.equity += m.equity ?? 0;
+      cur.inflow += m.inflow ?? 0;
+      cur.outflow += m.outflow ?? 0;
+      cur.total_revenue += m.total_revenue ?? 0;
+      cur.total_cost += m.total_cost ?? 0;
+      byMonth.set(k, cur);
+    });
+
+    return Array.from(byMonth.values())
+      .sort((a, b) => a.period_month.localeCompare(b.period_month))
+      .map((m) => {
+        const liquidity = m.liabilities > 0 ? (m.bank_balance + m.receivables) / m.liabilities : 0;
+        return {
+          ...m,
+          liquidity,
+        };
+      });
+  }, [metrics]);
+
+  const latest = aggregatedMetrics[aggregatedMetrics.length - 1];
+
+  const cashTrend = useMemo(() => aggregatedMetrics.map((m) => ({
     label: format(parseISO(m.period_month), "MMM yy"),
     bank: m.bank_balance ?? 0,
     inflow: m.inflow ?? 0,
     outflow: m.outflow ?? 0,
     net: (m.inflow ?? 0) - (m.outflow ?? 0),
-  })), [metrics]);
+  })), [aggregatedMetrics]);
 
   const revByFn = useMemo(() => aggregateByFn(revenue, filters.functionCode), [revenue, filters.functionCode]);
   const revByFnPie = useMemo(() => revByFn.filter((r) => r.fn !== "ELD" && r.fn !== "NMF" && r.fn !== "National Conference Delegation"), [revByFn]);
@@ -84,11 +135,11 @@ function LCDashboard() {
 
   // Equity change across the filtered period
   const equityChange = useMemo(() => {
-    if (metrics.length < 2) return null;
-    const first = metrics[0].equity ?? 0;
-    const last = metrics[metrics.length - 1].equity ?? 0;
+    if (aggregatedMetrics.length < 2) return null;
+    const first = aggregatedMetrics[0].equity ?? 0;
+    const last = aggregatedMetrics[aggregatedMetrics.length - 1].equity ?? 0;
     return last > 0 ? ((last - first) / last) * 100 : 0;
-  }, [metrics]);
+  }, [aggregatedMetrics]);
 
   // Revenue & Cost distribution %
   const revDistribution = useMemo(() => {
@@ -125,7 +176,7 @@ function LCDashboard() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <KpiCard label="Equity Change" value={fmtPct(equityChange ?? 0)} icon={equityChange !== null && equityChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />} accent={equityChange !== null && equityChange >= 0 ? "green" : "red"} />
-            <KpiCard label="Total Revenue" value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0))} icon={<Banknote className="h-4 w-4" />} accent="green" />
+            <KpiCard label="Total Revenue" value={fmtCurrency(aggregatedMetrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0))} icon={<Banknote className="h-4 w-4" />} accent="green" />
           </div>
 
           <Card>
