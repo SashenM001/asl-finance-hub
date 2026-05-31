@@ -73,9 +73,10 @@ function LCDashboard() {
   })), [metrics]);
 
   const revByFn = useMemo(() => aggregateByFn(revenue, filters.functionCode), [revenue, filters.functionCode]);
-  const costByFn = useMemo(() => aggregateByFn(costs, filters.functionCode), [costs, filters.functionCode]);
+  const revByFnPie = useMemo(() => revByFn.filter((r) => r.fn !== "ELD" && r.fn !== "NMF" && r.fn !== "National Conference Delegation"), [revByFn]);
+  const costByFn = useMemo(() => aggregateByFn(costs, filters.functionCode).filter((c) => c.fn !== "ELD"), [costs, filters.functionCode]);
 
-  const gpmByFn = useMemo(() => FUNCTION_CODES.map((fn) => {
+  const gpmByFn = useMemo(() => FUNCTION_CODES.filter((fn) => fn !== "ELD" && fn !== "NMF" && fn !== "National Conference Delegation").map((fn) => {
     const r = revenue.filter((x) => x.function_code === fn).reduce((s, x) => s + Number(x.amount), 0);
     const c = costs.filter((x) => x.function_code === fn).reduce((s, x) => s + Number(x.amount), 0);
     return { fn, gpm: r > 0 ? ((r - c) / r) * 100 : 0 };
@@ -91,8 +92,9 @@ function LCDashboard() {
 
   // Revenue & Cost distribution %
   const revDistribution = useMemo(() => {
-    const total = revByFn.reduce((s, r) => s + r.amount, 0);
-    return revByFn.map((r) => ({ fn: r.fn, pct: total > 0 ? (r.amount / total) * 100 : 0 }));
+    const filtered = revByFn.filter((r) => r.fn !== "ELD" && r.fn !== "NMF" && r.fn !== "National Conference Delegation");
+    const total = filtered.reduce((s, r) => s + r.amount, 0);
+    return filtered.map((r) => ({ fn: r.fn, pct: total > 0 ? (r.amount / total) * 100 : 0 }));
   }, [revByFn]);
 
   const costDistribution = useMemo(() => {
@@ -185,8 +187,8 @@ function LCDashboard() {
               <CardContent className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={revByFn} dataKey="amount" nameKey="fn" innerRadius={50} outerRadius={90}>
-                      {revByFn.map((_, i) => <Cell key={i} fill={FN_COLORS[i % FN_COLORS.length]} />)}
+                    <Pie data={revByFnPie} dataKey="amount" nameKey="fn" innerRadius={50} outerRadius={90}>
+                      {revByFnPie.map((_, i) => <Cell key={i} fill={FN_COLORS[i % FN_COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                     <Legend content={<CustomLegend />} />
