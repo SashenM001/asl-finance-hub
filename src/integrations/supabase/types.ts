@@ -171,7 +171,9 @@ export type Database = {
           npm: number | null
           outflow: number | null
           period_month: string
+          petty_cash: number | null
           receivables: number | null
+          reserves: number | null
           term: string | null
           total_cost: number | null
           total_revenue: number | null
@@ -194,7 +196,9 @@ export type Database = {
           npm?: number | null
           outflow?: number | null
           period_month: string
+          petty_cash?: number | null
           receivables?: number | null
+          reserves?: number | null
           term?: string | null
           total_cost?: number | null
           total_revenue?: number | null
@@ -217,7 +221,9 @@ export type Database = {
           npm?: number | null
           outflow?: number | null
           period_month?: string
+          petty_cash?: number | null
           receivables?: number | null
+          reserves?: number | null
           term?: string | null
           total_cost?: number | null
           total_revenue?: number | null

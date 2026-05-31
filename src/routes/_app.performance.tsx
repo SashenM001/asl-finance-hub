@@ -7,9 +7,9 @@ import { useAuth } from "@/lib/auth";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 import { format, parseISO } from "date-fns";
 
-export const Route = createFileRoute("/_app/performance")({
-  component: PerformancePage,
-});
+// export const Route = createFileRoute("/_app/performance")({
+//   component: PerformancePage,
+// });
 
 function PerformancePage() {
   const { profile, isLC, isMC, isEFB } = useAuth();

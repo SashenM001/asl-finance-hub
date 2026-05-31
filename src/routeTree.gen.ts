@@ -13,7 +13,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppReviewRouteImport } from './routes/_app.review'
-import { Route as AppPerformanceRouteImport } from './routes/_app.performance'
 import { Route as AppOverviewRouteImport } from './routes/_app.overview'
 import { Route as AppLcRouteImport } from './routes/_app.lc'
 import { Route as AppContactsRouteImport } from './routes/_app.contacts'
@@ -38,11 +37,6 @@ const IndexRoute = IndexRouteImport.update({
 const AppReviewRoute = AppReviewRouteImport.update({
   id: '/review',
   path: '/review',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPerformanceRoute = AppPerformanceRouteImport.update({
-  id: '/performance',
-  path: '/performance',
   getParentRoute: () => AppRoute,
 } as any)
 const AppOverviewRoute = AppOverviewRouteImport.update({
@@ -85,7 +79,6 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof AppContactsRoute
   '/lc': typeof AppLcRoute
   '/overview': typeof AppOverviewRoute
-  '/performance': typeof AppPerformanceRoute
   '/review': typeof AppReviewRoute
 }
 export interface FileRoutesByTo {
@@ -97,7 +90,6 @@ export interface FileRoutesByTo {
   '/contacts': typeof AppContactsRoute
   '/lc': typeof AppLcRoute
   '/overview': typeof AppOverviewRoute
-  '/performance': typeof AppPerformanceRoute
   '/review': typeof AppReviewRoute
 }
 export interface FileRoutesById {
@@ -111,7 +103,6 @@ export interface FileRoutesById {
   '/_app/contacts': typeof AppContactsRoute
   '/_app/lc': typeof AppLcRoute
   '/_app/overview': typeof AppOverviewRoute
-  '/_app/performance': typeof AppPerformanceRoute
   '/_app/review': typeof AppReviewRoute
 }
 export interface FileRouteTypes {
@@ -125,7 +116,6 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/lc'
     | '/overview'
-    | '/performance'
     | '/review'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -137,7 +127,6 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/lc'
     | '/overview'
-    | '/performance'
     | '/review'
   id:
     | '__root__'
@@ -150,7 +139,6 @@ export interface FileRouteTypes {
     | '/_app/contacts'
     | '/_app/lc'
     | '/_app/overview'
-    | '/_app/performance'
     | '/_app/review'
   fileRoutesById: FileRoutesById
 }
@@ -188,13 +176,6 @@ declare module '@tanstack/react-router' {
       path: '/review'
       fullPath: '/review'
       preLoaderRoute: typeof AppReviewRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/performance': {
-      id: '/_app/performance'
-      path: '/performance'
-      fullPath: '/performance'
-      preLoaderRoute: typeof AppPerformanceRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/overview': {
@@ -249,7 +230,6 @@ interface AppRouteChildren {
   AppContactsRoute: typeof AppContactsRoute
   AppLcRoute: typeof AppLcRoute
   AppOverviewRoute: typeof AppOverviewRoute
-  AppPerformanceRoute: typeof AppPerformanceRoute
   AppReviewRoute: typeof AppReviewRoute
 }
 
@@ -260,7 +240,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppContactsRoute: AppContactsRoute,
   AppLcRoute: AppLcRoute,
   AppOverviewRoute: AppOverviewRoute,
-  AppPerformanceRoute: AppPerformanceRoute,
   AppReviewRoute: AppReviewRoute,
 }
 

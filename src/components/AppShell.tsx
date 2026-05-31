@@ -7,7 +7,7 @@ const NAV = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/lc", label: "LC Dashboard", icon: Building2 },
   { to: "/budget", label: "Budget vs Actual", icon: Target },
-  { to: "/performance", label: "Performance", icon: TrendingUp },
+  // { to: "/performance", label: "Performance", icon: TrendingUp },
   { to: "/audit", label: "EFB Audit", icon: ShieldCheck },
   { to: "/review", label: "Monthly Review", icon: ClipboardCheck },
   { to: "/contacts", label: "Help & Contacts", icon: Users },

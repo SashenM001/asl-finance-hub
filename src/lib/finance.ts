@@ -15,6 +15,9 @@ export interface MonthlyMetric {
   inflow: number | null;
   outflow: number | null;
   assets: number | null;
+  // MoCR-specific: isolated from assets. Frontend sums all five for Total Assets display.
+  petty_cash: number | null;
+  reserves: number | null;
   liabilities: number | null;
   receivables: number | null;
   liquidity: number | null;
