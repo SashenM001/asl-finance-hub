@@ -41,10 +41,10 @@ function OverviewPage() {
     const totalRevenue = metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0);
     const totalCost = metrics.reduce((s, m) => s + (m.total_cost ?? 0), 0);
     const npm = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
-    const gpm = metrics.reduce((s, m) => s + (m.gpm ?? 0), 0) / metrics.length;
+    const gpm = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
     const equityFirst = metrics[0].equity ?? 0;
     const equityLast = latest.equity ?? 0;
-    const equityGrowth = equityFirst > 0 ? ((equityLast - equityFirst) / equityFirst) * 100 : 0;
+    const equityGrowth = equityLast > 0 ? ((equityLast - equityFirst) / equityLast) * 100 : 0;
     return {
       totalRevenue,
       npm,
