@@ -206,7 +206,7 @@ function LCDashboard() {
             <KpiCard label="Total Revenue" value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0))} icon={<Banknote className="h-4 w-4" />} accent="green" />
             <KpiCard label="Total Cost" value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_cost ?? 0), 0))} icon={<ArrowDownCircle className="h-4 w-4" />} accent="red" />
             {/* MoCR = (bank_balance + petty_cash + reserves - liabilities) / avg monthly cost (last 12 months) */}
-            <KpiCard label="MoCR" value={mocr !== null ? `${fmtNumber(mocr, 2)}x` : "—"} icon={<Activity className="h-4 w-4" />} accent="teal" />
+            <KpiCard label="MoCR" value={mocr !== null ? `${fmtNumber(mocr, 2)}` : "—"} icon={<Activity className="h-4 w-4" />} accent="teal" />
           </div>
 
           <Card>
