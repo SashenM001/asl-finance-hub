@@ -60,9 +60,16 @@ function OverviewPage() {
     const totalRevenue = metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0);
     const totalCost = metrics.reduce((s, m) => s + (m.total_cost ?? 0), 0);
     const gpm = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
-    const equityFirst = metrics[0].equity ?? 0;
-    const equityLast = latest.equity ?? 0;
-    const equityGrowth = equityLast > 0 ? ((equityLast - equityFirst) / equityLast) * 100 : 0;
+
+    // Aggregate equity across all entities per month, then compare first vs last month total
+    const equityByMonth = new Map<string, number>();
+    metrics.forEach((m) => {
+      equityByMonth.set(m.period_month, (equityByMonth.get(m.period_month) ?? 0) + (m.equity ?? 0));
+    });
+    const sortedMonths = Array.from(equityByMonth.keys()).sort();
+    const equityFirst = equityByMonth.get(sortedMonths[0]) ?? 0;
+    const equityLast = equityByMonth.get(sortedMonths[sortedMonths.length - 1]) ?? 0;
+    const equityGrowth = equityFirst !== 0 ? ((equityLast - equityFirst) / Math.abs(equityFirst)) * 100 : 0;
     return {
       totalRevenue,
       gpm,
