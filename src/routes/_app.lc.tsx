@@ -12,6 +12,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { Button } from "@/components/ui/button";
 import { PnLReport } from "@/components/PnLReport";
 import { DashboardDock } from "@/components/DashboardDock";
+import { PnLMatrixView } from "@/components/PnLMatrixView";
 
 export const Route = createFileRoute("/_app/lc")({
   component: LCDashboard,
@@ -506,6 +507,7 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
 }
 
 function LCDashboard() {
+  const [viewMode, setViewMode] = useState<'charts' | 'pnl'>('charts');
   const [views, setViews] = useState<{
     id: string;
     entity: string;
@@ -553,7 +555,7 @@ function LCDashboard() {
       container.removeEventListener("scroll", handleScroll);
       resizeObserver.disconnect();
     };
-  }, [views]);
+  }, [views, viewMode]);
 
   const handleAddView = () => {
     const defaultF = defaultFilters();
@@ -616,16 +618,43 @@ function LCDashboard() {
     });
   };
 
+  const handleEditConfig = (id: string) => {
+    setViewMode('charts');
+    setTimeout(() => {
+      document.getElementById(`card-${id}`)?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold">LC Dashboard</h2>
           <p className="text-sm text-muted-foreground">Local Committee detailed financial view.</p>
         </div>
-        <Button onClick={handleAddView} className="gap-2">
-          <Plus className="h-4 w-4" /> Add Split View
-        </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex bg-muted p-1 rounded-lg">
+            <button
+              onClick={() => setViewMode('charts')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                viewMode === 'charts' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Charts
+            </button>
+            <button
+              onClick={() => setViewMode('pnl')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                viewMode === 'pnl' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              PnL Matrix
+            </button>
+          </div>
+          <Button onClick={handleAddView} className="gap-2">
+            <Plus className="h-4 w-4" /> Add Split View
+          </Button>
+        </div>
       </div>
 
       {views.length === 0 ? (
@@ -639,45 +668,51 @@ function LCDashboard() {
         </Card>
       ) : (
         <div className="relative w-full">
-          <div
-            ref={scrollContainerRef}
-            className="flex flex-row flex-nowrap overflow-x-auto gap-6 p-4 w-full h-full items-start"
-          >
-            {views.map((view, index) => (
-              <div key={view.id} id={`card-${view.id}`} className={`${views.length === 1 ? "w-full" : "flex-none w-[500px]"} border rounded-xl p-3 md:p-6 bg-card/50 shadow-sm space-y-4`}>
-                <DashboardSplit
-                  config={{
-                    entity: view.entity === "Select LC" ? null : view.entity,
-                    term: view.term,
-                    function: view.function,
-                    from: view.from,
-                    to: view.to,
-                    viewMode: view.viewMode,
-                  }}
-                  onUpdate={(newConfig) => handleUpdate(view.id, newConfig)}
-                  onRemove={() => handleRemove(view.id)}
-                  isSplit={views.length > 1}
-                  onMove={(direction) => handleMove(index, direction)}
-                  isFirst={index === 0}
-                  isLast={index === views.length - 1}
-                />
+          {viewMode === 'charts' ? (
+            <>
+              <div
+                ref={scrollContainerRef}
+                className="flex flex-row flex-nowrap overflow-x-auto gap-6 p-4 w-full h-full items-start"
+              >
+                {views.map((view, index) => (
+                  <div key={view.id} id={`card-${view.id}`} className={`${views.length === 1 ? "w-full" : "flex-none w-[500px]"} border rounded-xl p-3 md:p-6 bg-card/50 shadow-sm space-y-4`}>
+                    <DashboardSplit
+                      config={{
+                        entity: view.entity === "Select LC" ? null : view.entity,
+                        term: view.term,
+                        function: view.function,
+                        from: view.from,
+                        to: view.to,
+                        viewMode: view.viewMode,
+                      }}
+                      onUpdate={(newConfig) => handleUpdate(view.id, newConfig)}
+                      onRemove={() => handleRemove(view.id)}
+                      isSplit={views.length > 1}
+                      onMove={(direction) => handleMove(index, direction)}
+                      isFirst={index === 0}
+                      isLast={index === views.length - 1}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <button
-            onClick={() => {
-              if (scrollContainerRef.current) {
-                scrollContainerRef.current.scrollBy({ left: 300, behavior: "smooth" });
-              }
-            }}
-            className={`fixed right-4 top-1/2 -translate-y-1/2 z-50 transition-opacity duration-300 bg-white/80 p-2 rounded-full shadow-lg border hover:scale-110 cursor-pointer ${
-              showScrollHint ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-            }`}
-            title="Scroll Right"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+              <button
+                onClick={() => {
+                  if (scrollContainerRef.current) {
+                    scrollContainerRef.current.scrollBy({ left: 300, behavior: "smooth" });
+                  }
+                }}
+                className={`fixed right-4 top-1/2 -translate-y-1/2 z-50 transition-opacity duration-300 bg-white/80 p-2 rounded-full shadow-lg border hover:scale-110 cursor-pointer ${
+                  showScrollHint ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                }`}
+                title="Scroll Right"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
+          ) : (
+            <PnLMatrixView configs={views} onAddConfig={handleAddView} onRemoveConfig={handleRemove} onEditConfig={handleEditConfig} />
+          )}
 
           <DashboardDock views={views} onReorder={setViews} onRemove={handleRemove} />
         </div>
