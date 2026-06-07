@@ -47,8 +47,8 @@ function Gate() {
         <div className="max-w-md rounded-lg border bg-card p-6 text-center">
           <h2 className="text-lg font-semibold">No role assigned</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your account doesn't have a role yet. Please contact an MC administrator to assign you a role
-            (LC, MC, or EFB) and an entity if you're an LC user.
+            Your account doesn't have a role yet. Please contact an MC administrator to assign you a
+            role (LC, MC, or EFB) and an entity if you're an LC user.
           </p>
         </div>
       </div>
