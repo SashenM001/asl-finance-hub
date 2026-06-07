@@ -13,12 +13,13 @@ const DEFAULT_RANGE = "MASTER_COMBINED_TALL!A1:I10000";
  */
 export async function fetchSheetData(
   spreadsheetId: string = SHEET_ID,
-  range: string = DEFAULT_RANGE
+  range: string = DEFAULT_RANGE,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[][]> {
   const apiKey = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "VITE_GOOGLE_SHEETS_API_KEY not found in .env. Please add your Google Sheets API key."
+      "VITE_GOOGLE_SHEETS_API_KEY not found in .env. Please add your Google Sheets API key.",
     );
   }
 
@@ -39,14 +40,15 @@ export async function fetchSheetData(
  */
 export async function fetchSheetDataMultiple(
   spreadsheetId: string,
-  ranges: string[]
+  ranges: string[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<Map<string, any[][]>> {
   const apiKey = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
   if (!apiKey) {
     throw new Error("VITE_GOOGLE_SHEETS_API_KEY not found in .env");
   }
 
-  const rangesParam = ranges.map(r => encodeURIComponent(r)).join("&ranges=");
+  const rangesParam = ranges.map((r) => encodeURIComponent(r)).join("&ranges=");
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?ranges=${rangesParam}&key=${apiKey}`;
 
   const response = await fetch(url);
@@ -54,9 +56,12 @@ export async function fetchSheetDataMultiple(
     throw new Error(`Google Sheets API error: ${response.statusText}`);
   }
 
-  const data = await response.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any = await response.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = new Map<string, any[][]>();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data.valueRanges?.forEach((range: any, index: number) => {
     result.set(ranges[index], range.values || []);
   });

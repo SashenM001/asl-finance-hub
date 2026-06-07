@@ -27,6 +27,37 @@ export interface SyncResult {
   errors: string[];
 }
 
+interface MonthlyMetricsPayloadRow {
+  entity_id: string;
+  period_month: string;
+  term: string | null;
+  bank_balance: number | null;
+  inflow: number | null;
+  outflow: number | null;
+  assets: number | null;
+  petty_cash: number | null;
+  reserves: number | null;
+  liabilities: number | null;
+  receivables: number | null;
+  liquidity: number | null;
+  equity: number | null;
+  total_revenue: number | null;
+  total_cost: number | null;
+  npm: number | null;
+  gpm: number | null;
+  finance_health_index: number | null;
+  finance_od_score: number | null;
+  global_ranking: number | null;
+  ap_ranking: number | null;
+}
+
+interface FunctionAmountPayloadRow {
+  entity_id: string;
+  period_month: string;
+  function_code: FunctionCode;
+  amount: number;
+}
+
 /** Composite key for grouping: entityName + periodMonth */
 type GroupKey = string;
 function makeKey(entityName: string, periodMonth: string): GroupKey {
@@ -77,8 +108,11 @@ function newGroup(entityName: string, periodMonth: string, term: string): GroupD
     outflow: 0,
     totalRevenue: 0,
     totalCost: 0,
-    revenue: Object.fromEntries(FUNCTION_CODES.map((fc) => [fc, 0])) as Record<FunctionCode, number>,
-    cost:    Object.fromEntries(FUNCTION_CODES.map((fc) => [fc, 0])) as Record<FunctionCode, number>,
+    revenue: Object.fromEntries(FUNCTION_CODES.map((fc) => [fc, 0])) as Record<
+      FunctionCode,
+      number
+    >,
+    cost: Object.fromEntries(FUNCTION_CODES.map((fc) => [fc, 0])) as Record<FunctionCode, number>,
   };
 }
 
@@ -194,12 +228,14 @@ export async function syncSheetData(): Promise<SyncResult> {
       }
     }
 
-    console.log(`✅ Parsed ${parsedCount} rows, skipped ${skippedCount}, into ${groups.size} (entity, month) groups`);
+    console.log(
+      `✅ Parsed ${parsedCount} rows, skipped ${skippedCount}, into ${groups.size} (entity, month) groups`,
+    );
 
     // 4. Build upsert payloads
-    const metricsPayload: any[] = [];
-    const revenuePayload: any[] = [];
-    const costPayload: any[] = [];
+    const metricsPayload: MonthlyMetricsPayloadRow[] = [];
+    const revenuePayload: FunctionAmountPayloadRow[] = [];
+    const costPayload: FunctionAmountPayloadRow[] = [];
 
     for (const group of groups.values()) {
       const entityId = entityMap.get(group.entityName);
@@ -218,16 +254,19 @@ export async function syncSheetData(): Promise<SyncResult> {
       // We prefer the actual 'cash_flow' rows (CFS report type) from the Google Sheet.
       // If none are present (i.e., inflow/outflow are 0), we fall back to a synthetic calculation
       // based on PnL data: (totalRevenue + bank_balance) for inflow, totalCost for outflow.
-      const inflow = group.inflow > 0 ? group.inflow : (group.totalRevenue + group.bank_balance);
+      const inflow = group.inflow > 0 ? group.inflow : group.totalRevenue + group.bank_balance;
       const outflow = group.outflow > 0 ? group.outflow : group.totalCost;
 
       //const liquidity = group.bank_balance - group.liabilities;
 
       // Corrected Liquidity Ratio: (Bank Balance + Receivables) / Liabilities
       const totalLiquidAssets = group.bank_balance + group.receivables;
-      const liquidity = group.liabilities > 0
-        ? +(totalLiquidAssets / group.liabilities).toFixed(2)
-        : totalLiquidAssets > 0 ? 999 : 0;
+      const liquidity =
+        group.liabilities > 0
+          ? +(totalLiquidAssets / group.liabilities).toFixed(2)
+          : totalLiquidAssets > 0
+            ? 999
+            : 0;
 
       // monthly_metrics
       metricsPayload.push({
@@ -298,16 +337,10 @@ export async function syncSheetData(): Promise<SyncResult> {
     if (revenuePayload.length > 0) {
       console.log(`⏳ Inserting ${revenuePayload.length} revenue stream rows...`);
       // Delete existing revenue data first (no unique constraint on entity+month+func)
-      const entityPeriods = new Set(
-        revenuePayload.map((r) => `${r.entity_id}|${r.period_month}`)
-      );
+      const entityPeriods = new Set(revenuePayload.map((r) => `${r.entity_id}|${r.period_month}`));
       for (const ep of entityPeriods) {
         const [eid, pm] = ep.split("|");
-        await supabase
-          .from("revenue_streams")
-          .delete()
-          .eq("entity_id", eid)
-          .eq("period_month", pm);
+        await supabase.from("revenue_streams").delete().eq("entity_id", eid).eq("period_month", pm);
       }
 
       const { error } = await supabase.from("revenue_streams").insert(revenuePayload);
@@ -324,16 +357,10 @@ export async function syncSheetData(): Promise<SyncResult> {
     if (costPayload.length > 0) {
       console.log(`⏳ Inserting ${costPayload.length} cost breakdown rows...`);
       // Delete existing cost data first
-      const entityPeriods = new Set(
-        costPayload.map((r) => `${r.entity_id}|${r.period_month}`)
-      );
+      const entityPeriods = new Set(costPayload.map((r) => `${r.entity_id}|${r.period_month}`));
       for (const ep of entityPeriods) {
         const [eid, pm] = ep.split("|");
-        await supabase
-          .from("cost_breakdown")
-          .delete()
-          .eq("entity_id", eid)
-          .eq("period_month", pm);
+        await supabase.from("cost_breakdown").delete().eq("entity_id", eid).eq("period_month", pm);
       }
 
       const { error } = await supabase.from("cost_breakdown").insert(costPayload);
