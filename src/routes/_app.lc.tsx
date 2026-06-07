@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Filters, defaultFilters, type FilterState } from "@/components/Filters";
 import { KpiCard } from "@/components/KpiCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { fetchMetrics, fmtCurrency, fmtPct, fmtNumber, FUNCTION_CODES, type Func
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
-import { Banknote, Wallet, ArrowDownCircle, ArrowUpCircle, Landmark, Coins, TrendingUp, TrendingDown, Activity, X, Plus } from "lucide-react";
+import { Banknote, Wallet, ArrowDownCircle, ArrowUpCircle, Landmark, Coins, TrendingUp, TrendingDown, Activity, X, Plus, ChevronRight } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend, PieChart, Pie, Cell } from "recharts";
 import { Button } from "@/components/ui/button";
 import { PnLReport } from "@/components/PnLReport";
@@ -61,15 +61,15 @@ function calculateTermFromDate(dateStr: string): string {
   if (!dateStr) return "all";
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return "all";
-  
+
   const year = date.getFullYear();
   const month = date.getMonth(); // 0 = January, 1 = February
-  
+
   // AIESEC term starts in February
   const termStartYear = month >= 1 ? year : year - 1;
   const startShort = termStartYear % 100;
   const endShort = (termStartYear + 1) % 100;
-  
+
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(startShort)}-${pad(endShort)}`;
 }
@@ -271,11 +271,11 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit }: DashboardSplitP
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4 gap-y-2 pb-4 border-b">
         <div className="flex-grow">
-          <Filters 
-            value={filters} 
-            onChange={handleFilterChange} 
-            showFunctionFilter={false} 
-            showTermFilter={false} 
+          <Filters
+            value={filters}
+            onChange={handleFilterChange}
+            showFunctionFilter={false}
+            showTermFilter={false}
             showDateFilters={true}
           />
         </div>
@@ -283,21 +283,19 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit }: DashboardSplitP
           <div className="flex rounded-md border p-0.5 bg-muted">
             <button
               onClick={() => onUpdate({ ...config, viewMode: "graphical" })}
-              className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all cursor-pointer ${
-                config.viewMode === "graphical"
+              className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all cursor-pointer ${config.viewMode === "graphical"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               Graphical
             </button>
             <button
               onClick={() => onUpdate({ ...config, viewMode: "report" })}
-              className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all cursor-pointer ${
-                config.viewMode === "report"
+              className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all cursor-pointer ${config.viewMode === "report"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               Report
             </button>
@@ -339,7 +337,7 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit }: DashboardSplitP
 
           <Card>
             <CardHeader><CardTitle className="text-base">Cash and Cash Equivalent trend</CardTitle></CardHeader>
-            <CardContent className="h-72">
+            <CardContent className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={cashTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -352,10 +350,10 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit }: DashboardSplitP
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 w-full">
             <Card>
               <CardHeader><CardTitle className="text-base">Inflow vs Outflow</CardTitle></CardHeader>
-              <CardContent className="h-72">
+              <CardContent className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={cashTrend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -372,7 +370,7 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit }: DashboardSplitP
 
             <Card>
               <CardHeader><CardTitle className="text-base">Net cash movement</CardTitle></CardHeader>
-              <CardContent className="h-72">
+              <CardContent className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={cashTrend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -390,11 +388,11 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit }: DashboardSplitP
             </Card>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className={isSplit ? "grid grid-cols-1 gap-6 w-full mb-8" : "grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8"}>
             <Card>
               <CardHeader><CardTitle className="text-base">Revenue by function</CardTitle></CardHeader>
-              <CardContent className="h-72 overflow-x-auto">
-                <div className="min-w-[300px] h-full">
+              <CardContent className="h-[300px] w-full overflow-x-auto">
+                <div className="w-full h-full min-w-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={revByFnPie} dataKey="amount" nameKey="fn" innerRadius={50} outerRadius={90}>
@@ -409,8 +407,8 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit }: DashboardSplitP
             </Card>
             <Card>
               <CardHeader><CardTitle className="text-base">Cost by function</CardTitle></CardHeader>
-              <CardContent className="h-72 overflow-x-auto">
-                <div className="min-w-[300px] h-full">
+              <CardContent className="h-[300px] w-full overflow-x-auto">
+                <div className="w-full h-full min-w-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={costByFn} dataKey="amount" nameKey="fn" innerRadius={50} outerRadius={90}>
@@ -423,30 +421,31 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit }: DashboardSplitP
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-base">GPM by function (%)</CardTitle></CardHeader>
-              <CardContent className="w-full overflow-x-auto">
-                <div className="min-w-[400px]">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={gpmByFn}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="fn" tick={{ fontSize: 11, angle: -45, textAnchor: "end", dy: 8 }} height={60} interval={0} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(v) => `${Number(v).toFixed(2)}%`} />
-
-                      <Bar dataKey="gpm">
-                        {gpmByFn.map((_, i) => (
-                          <Cell key={`cell-${i}`} fill={FN_COLORS[i % FN_COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle className="text-base">GPM by function (%)</CardTitle></CardHeader>
+            <CardContent className="h-[300px] w-full overflow-x-auto">
+              <div className="w-full h-full min-w-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={gpmByFn}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="fn" tick={{ fontSize: 11, angle: -45, textAnchor: "end", dy: 8 }} height={60} interval={0} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(v) => `${Number(v).toFixed(2)}%`} />
+
+                    <Bar dataKey="gpm">
+                      {gpmByFn.map((_, i) => (
+                        <Cell key={`cell-${i}`} fill={FN_COLORS[i % FN_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className={isSplit ? "grid grid-cols-1 gap-6 w-full mb-8" : "grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8"}>
             <Card>
               <CardHeader><CardTitle className="text-base">Revenue Distribution (%)</CardTitle></CardHeader>
               <CardContent>
@@ -516,6 +515,32 @@ function LCDashboard() {
     ];
   });
 
+  const [showScrollHint, setShowScrollHint] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const canScrollRight = container.scrollWidth - container.scrollLeft > container.clientWidth + 5;
+      setShowScrollHint(canScrollRight);
+    };
+
+    handleScroll();
+
+    const resizeObserver = new ResizeObserver(() => {
+      handleScroll();
+    });
+    resizeObserver.observe(container);
+
+    container.addEventListener("scroll", handleScroll);
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      resizeObserver.disconnect();
+    };
+  }, [views]);
+
   const handleAddView = () => {
     const defaultF = defaultFilters();
     const newId = Date.now().toString();
@@ -548,14 +573,14 @@ function LCDashboard() {
       prev.map((v) =>
         v.id === id
           ? {
-              ...v,
-              entity: newConfig.entity || "Select LC",
-              term: newConfig.term,
-              function: newConfig.function,
-              from: newConfig.from,
-              to: newConfig.to,
-              viewMode: newConfig.viewMode,
-            }
+            ...v,
+            entity: newConfig.entity || "Select LC",
+            term: newConfig.term,
+            function: newConfig.function,
+            from: newConfig.from,
+            to: newConfig.to,
+            viewMode: newConfig.viewMode,
+          }
           : v
       )
     );
@@ -587,24 +612,43 @@ function LCDashboard() {
           </CardContent>
         </Card>
       ) : (
-        <div className={views.length > 1 ? "flex flex-row flex-nowrap overflow-x-auto gap-6 p-4 w-full" : "grid grid-cols-1 gap-8 w-full"}>
-          {views.map((view) => (
-            <div key={view.id} className={views.length > 1 ? "flex-shrink-0 w-full md:w-[calc(50%-12px)] border rounded-xl p-3 md:p-6 bg-card/50 shadow-sm space-y-4" : ""}>
-              <DashboardSplit
-                config={{
-                  entity: view.entity === "Select LC" ? null : view.entity,
-                  term: view.term,
-                  function: view.function,
-                  from: view.from,
-                  to: view.to,
-                  viewMode: view.viewMode,
-                }}
-                onUpdate={(newConfig) => handleUpdate(view.id, newConfig)}
-                onRemove={() => handleRemove(view.id)}
-                isSplit={views.length > 1}
-              />
-            </div>
-          ))}
+        <div className="relative w-full">
+          <div
+            ref={scrollContainerRef}
+            className="flex flex-row flex-nowrap overflow-x-auto gap-6 p-4 w-full h-full items-start"
+          >
+            {views.map((view) => (
+              <div key={view.id} className={`${views.length === 1 ? "w-full" : "flex-none w-[500px]"} border rounded-xl p-3 md:p-6 bg-card/50 shadow-sm space-y-4`}>
+                <DashboardSplit
+                  config={{
+                    entity: view.entity === "Select LC" ? null : view.entity,
+                    term: view.term,
+                    function: view.function,
+                    from: view.from,
+                    to: view.to,
+                    viewMode: view.viewMode,
+                  }}
+                  onUpdate={(newConfig) => handleUpdate(view.id, newConfig)}
+                  onRemove={() => handleRemove(view.id)}
+                  isSplit={views.length > 1}
+                />
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => {
+              if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollBy({ left: 300, behavior: "smooth" });
+              }
+            }}
+            className={`fixed right-4 top-1/2 -translate-y-1/2 z-50 transition-opacity duration-300 bg-white/80 p-2 rounded-full shadow-lg border hover:scale-110 cursor-pointer ${
+              showScrollHint ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+            }`}
+            title="Scroll Right"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
         </div>
       )}
     </div>
