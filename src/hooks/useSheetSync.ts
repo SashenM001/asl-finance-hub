@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { syncSheetData } from "@/integrations/googleSheets/sync";
 import type { SyncResult } from "@/integrations/googleSheets";
 
@@ -26,12 +27,6 @@ export function useSheetSync() {
     setResult(null);
 
     try {
-      const webhookUrl = import.meta.env.VITE_APPSCRIPT_WEBHOOK_URL as string | undefined;
-      const webhookSecret = import.meta.env.VITE_APPSCRIPT_SECRET as string | undefined;
-
-      if (!webhookUrl)
-        throw new Error("VITE_APPSCRIPT_WEBHOOK_URL not set in .env — complete Gate 1 first.");
-
       const month =
         options.mode === "current"
           ? (() => {
@@ -41,12 +36,23 @@ export function useSheetSync() {
             })()
           : (options.month ?? null);
 
-      // ── Step 1: trigger AppScript to rebuild MASTER_COMBINED_TALL ──
-      const webhookRes = await fetch(webhookUrl, {
+      // ── Step 1: trigger AppScript via Edge Function ──────────────────────
+      // The Edge Function holds APPSCRIPT_WEBHOOK_URL + APPSCRIPT_SECRET
+      // server-side — the browser only sends the user's JWT here.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const edgeFnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trigger-sheet-sync`;
+
+      const webhookRes = await fetch(edgeFnUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
-          secret: webhookSecret ?? "",
           mode: options.mode,
           term: options.term ?? null,
           month,
