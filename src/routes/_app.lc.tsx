@@ -7,7 +7,7 @@ import { fetchMetrics, fmtCurrency, fmtPct, fmtNumber, FUNCTION_CODES, type Func
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
-import { Banknote, Wallet, ArrowDownCircle, ArrowUpCircle, Landmark, Coins, TrendingUp, TrendingDown, Activity, X, Plus, ChevronRight } from "lucide-react";
+import { Banknote, Wallet, ArrowDownCircle, ArrowUpCircle, Landmark, Coins, TrendingUp, TrendingDown, Activity, X, Plus, ChevronRight, Download, Pin } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend, PieChart, Pie, Cell } from "recharts";
 import { Button } from "@/components/ui/button";
 import { PnLReport } from "@/components/PnLReport";
@@ -60,6 +60,8 @@ interface DashboardSplitProps {
   onMove?: (direction: "left" | "right") => void;
   isFirst?: boolean;
   isLast?: boolean;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
 }
 
 function calculateTermFromDate(dateStr: string): string {
@@ -79,7 +81,7 @@ function calculateTermFromDate(dateStr: string): string {
   return `${pad(startShort)}-${pad(endShort)}`;
 }
 
-function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, isLast }: DashboardSplitProps) {
+function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, isLast, isPinned, onTogglePin }: DashboardSplitProps) {
   const { profile, isLC, isMC, isEFB } = useAuth();
   const [filters, setFilters] = useState<FilterState>(() => ({
     ...defaultFilters(),
@@ -305,6 +307,17 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
               Report
             </button>
           </div>
+          {isSplit && (
+            <Button 
+              variant={isPinned ? "default" : "outline"} 
+              size="icon" 
+              className={`h-10 w-10 transition-colors ${isPinned ? "bg-blue-600 text-white hover:bg-blue-700" : ""}`} 
+              onClick={onTogglePin} 
+              title={isPinned ? "Unpin Card" : "Pin to Compare"}
+            >
+              <Pin className="h-4 w-4" />
+            </Button>
+          )}
           {isSplit && !isFirst && (
             <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => onMove?.("left")} title="Move Left">
               ←
@@ -508,6 +521,8 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
 
 function LCDashboard() {
   const [viewMode, setViewMode] = useState<'charts' | 'pnl'>('charts');
+  const [activeMatrixIndex, setActiveMatrixIndex] = useState(0);
+  const [pinnedViewId, setPinnedViewId] = useState<string | null>(null);
   const [views, setViews] = useState<{
     id: string;
     entity: string;
@@ -632,7 +647,7 @@ function LCDashboard() {
           <h2 className="text-2xl font-semibold">LC Dashboard</h2>
           <p className="text-sm text-muted-foreground">Local Committee detailed financial view.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex bg-muted p-1 rounded-lg">
             <button
               onClick={() => setViewMode('charts')}
@@ -651,9 +666,24 @@ function LCDashboard() {
               PnL Matrix
             </button>
           </div>
-          <Button onClick={handleAddView} className="gap-2">
-            <Plus className="h-4 w-4" /> Add Split View
-          </Button>
+          
+          {viewMode === 'pnl' && (
+            <button 
+              onClick={() => window.dispatchEvent(new CustomEvent('export-pnl-csv'))}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium shadow-sm border border-transparent"
+            >
+              <Download className="w-4 h-4" /> Download CSV
+            </button>
+          )}
+
+          {viewMode === 'charts' && (
+            <button 
+              onClick={handleAddView}
+              className="px-4 py-2 bg-[#037EF3] text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium shadow-sm"
+            >
+              <Plus size={16} /> Add Split View
+            </button>
+          )}
         </div>
       </div>
 
@@ -674,26 +704,41 @@ function LCDashboard() {
                 ref={scrollContainerRef}
                 className="flex flex-row flex-nowrap overflow-x-auto gap-6 p-4 w-full h-full items-start"
               >
-                {views.map((view, index) => (
-                  <div key={view.id} id={`card-${view.id}`} className={`${views.length === 1 ? "w-full" : "flex-none w-[500px]"} border rounded-xl p-3 md:p-6 bg-card/50 shadow-sm space-y-4`}>
-                    <DashboardSplit
-                      config={{
-                        entity: view.entity === "Select LC" ? null : view.entity,
-                        term: view.term,
-                        function: view.function,
-                        from: view.from,
-                        to: view.to,
-                        viewMode: view.viewMode,
-                      }}
-                      onUpdate={(newConfig) => handleUpdate(view.id, newConfig)}
-                      onRemove={() => handleRemove(view.id)}
-                      isSplit={views.length > 1}
-                      onMove={(direction) => handleMove(index, direction)}
-                      isFirst={index === 0}
-                      isLast={index === views.length - 1}
-                    />
-                  </div>
-                ))}
+                {views.map((view, index) => {
+                  const isPinned = view.id === pinnedViewId;
+
+                  return (
+                    <div 
+                      key={view.id} 
+                      id={`card-${view.id}`} 
+                      className={`${views.length === 1 ? "w-full" : "flex-none w-[500px]"} border rounded-xl p-3 md:p-6 shadow-sm space-y-4 transition-all duration-300 ${
+                        isPinned ? "sticky left-0 z-20 shadow-xl border-2 border-blue-500 bg-white" : "bg-card/50"
+                      }`}
+                    >
+                      <DashboardSplit
+                        config={{
+                          entity: view.entity === "Select LC" ? null : view.entity,
+                          term: view.term,
+                          function: view.function,
+                          from: view.from,
+                          to: view.to,
+                          viewMode: view.viewMode,
+                        }}
+                        onUpdate={(newConfig) => handleUpdate(view.id, newConfig)}
+                        onRemove={() => {
+                          if (pinnedViewId === view.id) setPinnedViewId(null);
+                          handleRemove(view.id);
+                        }}
+                        isSplit={views.length > 1}
+                        onMove={(direction) => handleMove(index, direction)}
+                        isFirst={index === 0}
+                        isLast={index === views.length - 1}
+                        isPinned={isPinned}
+                        onTogglePin={() => setPinnedViewId(isPinned ? null : view.id)}
+                      />
+                    </div>
+                  );
+                })}
               </div>
 
               <button
@@ -711,10 +756,22 @@ function LCDashboard() {
               </button>
             </>
           ) : (
-            <PnLMatrixView configs={views} onAddConfig={handleAddView} onRemoveConfig={handleRemove} onEditConfig={handleEditConfig} />
+            <PnLMatrixView 
+              configs={views} 
+              onAddConfig={handleAddView} 
+              onRemoveConfig={handleRemove} 
+              onEditConfig={handleEditConfig} 
+              onUpdateConfig={(id, updates) => setViews(prev => prev.map(v => v.id === id ? { ...v, ...updates } : v))}
+              onScrollIndexChange={setActiveMatrixIndex}
+            />
           )}
 
-          <DashboardDock views={views} onReorder={setViews} onRemove={handleRemove} />
+          <DashboardDock 
+            views={views} 
+            onReorder={setViews} 
+            onRemove={handleRemove} 
+            activeMatrixId={viewMode === 'pnl' ? views[activeMatrixIndex]?.id : undefined}
+          />
         </div>
       )}
     </div>

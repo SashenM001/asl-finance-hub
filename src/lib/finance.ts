@@ -104,6 +104,19 @@ export function fmtPct(n: number | null | undefined) {
   return `${n.toFixed(2)}%`;
 }
 
+export function formatEntityName(name: string) {
+  if (!name || name === "Unassigned LC" || name === "all") {
+    return "All Entities";
+  }
+  
+  const map: Record<string, string> = {
+    "Colombo North": "C. North",
+    "Colombo South": "C. South",
+    "Colombo Central": "C. Central"
+  };
+  return map[name] || name;
+}
+
 export interface PnLMetrics {
   igvIncome: number;
   igtIncome: number;

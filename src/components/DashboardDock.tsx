@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { fetchEntities, type Entity } from "@/lib/finance";
+import { useEffect, useState, useRef } from "react";
+import { fetchEntities, formatEntityName, type Entity } from "@/lib/finance";
 import {
   DndContext,
   closestCenter,
@@ -29,6 +29,7 @@ interface DashboardDockProps {
   views: DockItem[];
   onReorder: (newViews: DockItem[]) => void;
   onRemove: (id: string) => void;
+  activeMatrixId?: string;
 }
 
 interface SortableDockItemProps {
@@ -67,48 +68,69 @@ function SortableDockItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative flex items-center gap-1.5 px-3 py-1 rounded-md transition-colors ${
-        isActive
-          ? "bg-white/20 text-white scale-105"
-          : "hover:bg-[#0268c7] text-white/70 hover:text-white"
-      }`}
+      className={`group relative shrink-0 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md transition-all duration-300 min-w-[80px] max-w-[120px] hover:bg-[#0268c7] text-white/70 hover:text-white`}
     >
-      {/* Close button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        className="absolute -top-1 -right-1 z-10 p-0.5 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600 cursor-pointer"
-        title="Remove View"
-      >
-        <X className="h-2.5 w-2.5" />
-      </button>
-
       {/* Grip Handle */}
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-white/50 hover:text-white p-0.5 shrink-0"
+        className={`cursor-grab active:cursor-grabbing p-0.5 shrink-0 transition-colors duration-300 text-white/50 hover:text-white`}
       >
-        <GripVertical className="h-3.5 w-3.5" />
+        <GripVertical className="h-3 w-3" />
       </div>
 
-      <div className="flex flex-col items-center select-none cursor-pointer" onClick={onClick}>
-        <span className="text-xs font-bold text-white truncate max-w-[100px]">
+      <div className="flex flex-col items-center justify-center select-none cursor-pointer w-full px-1 overflow-hidden" onClick={onClick}>
+        <span className={`text-xs font-medium truncate w-full text-center transition-colors duration-300 text-white`}>
           {entityName}
         </span>
-        <span className="text-[10px] text-white/70">
+        <span className={`text-[9px] truncate w-full text-center transition-colors duration-300 text-white/70`}>
           {dateRange}
         </span>
+      </div>
+
+      {/* Close button */}
+      <div className="flex items-center justify-center shrink-0">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className={`flex items-center justify-center h-4 w-4 rounded-full transition-colors duration-200 cursor-pointer text-white/70 hover:text-red-600 hover:bg-red-100`}
+          title="Remove View"
+        >
+          <X className="h-2.5 w-2.5" />
+        </button>
       </div>
     </div>
   );
 }
 
-export function DashboardDock({ views, onReorder, onRemove }: DashboardDockProps) {
+export function DashboardDock({ views, onReorder, onRemove, activeMatrixId }: DashboardDockProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [entities, setEntities] = useState<Entity[]>([]);
+  const [scrollMetrics, setScrollMetrics] = useState({ scrollLeft: 0, scrollWidth: 0, clientWidth: 0 });
+  const scrollbarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => setScrollMetrics(e.detail);
+    window.addEventListener('pnl-scroll-metrics', handler);
+    return () => window.removeEventListener('pnl-scroll-metrics', handler);
+  }, []);
+
+  const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollbarRef.current || scrollMetrics.scrollWidth <= 0) return;
+    const rect = scrollbarRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickPercentage = clickX / rect.width;
+    const newScrollLeft = clickPercentage * scrollMetrics.scrollWidth;
+    const centeredScrollLeft = newScrollLeft - (scrollMetrics.clientWidth / 2);
+    
+    window.dispatchEvent(new CustomEvent('pnl-scroll-to', { detail: centeredScrollLeft }));
+  };
+
+  const showIndicator = scrollMetrics.scrollWidth > scrollMetrics.clientWidth;
+  const widthPercentage = scrollMetrics.scrollWidth > 0 ? (scrollMetrics.clientWidth / scrollMetrics.scrollWidth) * 100 : 0;
+  const leftPercentage = scrollMetrics.scrollWidth > 0 ? (scrollMetrics.scrollLeft / scrollMetrics.scrollWidth) * 100 : 0;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -198,17 +220,19 @@ export function DashboardDock({ views, onReorder, onRemove }: DashboardDockProps
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 bg-[#037EF3] text-white shadow-2xl rounded-full px-4 py-2 h-12 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] max-w-[90vw] overflow-x-auto">
-        <SortableContext
-          items={views.map((v) => v.id)}
-          strategy={horizontalListSortingStrategy}
-        >
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2 w-max max-w-[90vw]">
+        <div className="flex flex-nowrap items-center gap-1 bg-[#037EF3] text-white shadow-2xl rounded-full px-3 py-1.5 h-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full overflow-x-auto">
+          <SortableContext
+            items={views.map((v) => v.id)}
+            strategy={horizontalListSortingStrategy}
+          >
           {views.map((view) => {
-            const isActive = activeId === view.id;
+            const isActive = activeMatrixId ? activeMatrixId === view.id : activeId === view.id;
             const matchedEntity = entities.find((e) => e.id === view.entity);
             
             // Map local state to requested display keys
-            const entityName = view.entity === "Select LC" ? "Unassigned LC" : (matchedEntity?.name || "Unknown");
+            const rawEntityName = view.entity === "Select LC" ? "Unassigned LC" : (matchedEntity?.name || "Unknown");
+            const entityName = formatEntityName(rawEntityName);
             const dateRange = view.from && view.to
               ? `${formatDate(view.from)} - ${formatDate(view.to)}`
               : view.term || "No Date";
@@ -226,6 +250,20 @@ export function DashboardDock({ views, onReorder, onRemove }: DashboardDockProps
             );
           })}
         </SortableContext>
+        </div>
+        
+        {activeMatrixId && showIndicator && (
+          <div 
+            ref={scrollbarRef}
+            onClick={handleTrackClick}
+            className="w-full h-2 bg-gray-100 rounded-full relative overflow-hidden cursor-pointer shadow-sm"
+          >
+            <div 
+              className="absolute top-0 h-full bg-blue-500 rounded-full pointer-events-none transition-all duration-75"
+              style={{ width: `${widthPercentage}%`, left: `${leftPercentage}%` }}
+            />
+          </div>
+        )}
       </div>
     </DndContext>
   );
