@@ -15,7 +15,7 @@ that reuses this pattern (sharing the transport, with an independent data path).
 ## 1. High-level flow
 
 The sync is a **two-step flow** kicked off by an MC user from the Admin page
-([_app.admin.tsx](../../src/routes/_app.admin.tsx) → "Google Sheets Sync" card → "Run Sync").
+([\_app.admin.tsx](../../src/routes/_app.admin.tsx) → "Google Sheets Sync" card → "Run Sync").
 
 ```
 ┌─────────────┐   ① POST {mode,term,month}      ┌──────────────────────────┐
@@ -82,8 +82,8 @@ shared secret never reach the browser.
    the caller's JWT, calls `supabase.auth.getUser()`. No user → 401.
 2. **Authorize** — queries `user_roles` for the user; requires `mc_user`. Else → 403.
 3. **Forward** — POSTs `{ secret, sync, mode, term, month }` to the AppScript webhook URL.
-  `sync` defaults to `"financial"`; the audit flow sends `"audit"` so the same endpoint
-  can route both syncers.
+   `sync` defaults to `"financial"`; the audit flow sends `"audit"` so the same endpoint
+   can route both syncers.
 4. **Relay** — returns the AppScript JSON `{ ok, rowsWritten, warnings }` (or `{ ok:false, error }`) verbatim to the browser, with CORS headers.
 
 ### 2.3 Google AppScript — `MASTER_COMBINED_TALL` builder
@@ -93,14 +93,18 @@ is committed at [appscript/master-combined-tall-sync.gs](../../appscript/master-
 — see §5 for why a committed copy matters and the secret-handling caveat.
 
 Entry point: `doPost(e)`
+
 1. Parses `e.postData.contents` → `{ secret, sync, mode, term, month }`.
 2. Rejects if `secret !== WEBHOOK_SECRET` (returns `{ ok:false, error:"Unauthorized" }`).
 3. Routes by `sync`:
-  - `"audit"` → `syncAuditConsolidationMasterSheet(month)`.
-  - default `"financial"` → `syncCombinedTallMasterSheet(mode, term, month)`.
+
+- `"audit"` → `syncAuditConsolidationMasterSheet(month)`.
+- default `"financial"` → `syncCombinedTallMasterSheet(mode, term, month)`.
+
 4. Returns `{ ok:true, rowsWritten, warnings }`.
 
 `syncCombinedTallMasterSheet(mode, filterTerm, filterMonth)`
+
 - Selects which source workbooks to process from `CONSOLIDATED_SHEETS`:
   - `"term"` → only the matching term's workbook.
   - `"current"` → only the **last** entry in `CONSOLIDATED_SHEETS` (latest term).
@@ -115,7 +119,7 @@ Entry point: `doPost(e)`
   - For each data row, keeps it only if col A matches `^\d{4}-` (a real GFB code) **or** the
     description is one of the `ALLOWED` summary lines (then `GFB_Code = "SUMMARY"`):
     `LC Revenue, LC Costs, Net Income before NMF & Tax, Total Assets, Total Liabilities,
-    LC Equity, Cash Inflow, Cash Outflow, Net Cash Movement`.
+LC Equity, Cash Inflow, Cash Outflow, Net Cash Movement`.
   - Emits one tall row per (row × non-zero numeric date cell), optionally filtered to
     `filterMonth`.
 - `_writeTallSheet()` **clears and overwrites** the `MASTER_COMBINED_TALL` tab (full replace,
@@ -123,17 +127,17 @@ Entry point: `doPost(e)`
 
 **Output schema** (the contract Step 2 depends on), one row per line-item-per-month:
 
-| Col | Header | Example | Notes |
-|----:|--------|---------|-------|
-| 0 | `LC` | `Kandy` | LC name (post-prefix-strip); must match `LC_CODE_TO_NAME` keys |
-| 1 | `LC_Term` | `25-26` | term |
-| 2 | `Year` | `2025` | integer |
-| 3 | `Month` | `Feb` | 3-letter abbr |
-| 4 | `Date` | `2025-02-01` | **first-of-month ISO — Step 2's `period_month`** |
-| 5 | `Report_Type` | `PnL` / `CFS` | segments PnL vs Cash Flow |
-| 6 | `GFB_Code` | `7001-EX-RV-LC` / `SUMMARY` | full GFB code |
-| 7 | `Description` | `Direct Revenue: iGV Partner Fee` | line label |
-| 8 | `Amount` | `50000` | numeric LKR |
+| Col | Header        | Example                           | Notes                                                          |
+| --: | ------------- | --------------------------------- | -------------------------------------------------------------- |
+|   0 | `LC`          | `Kandy`                           | LC name (post-prefix-strip); must match `LC_CODE_TO_NAME` keys |
+|   1 | `LC_Term`     | `25-26`                           | term                                                           |
+|   2 | `Year`        | `2025`                            | integer                                                        |
+|   3 | `Month`       | `Feb`                             | 3-letter abbr                                                  |
+|   4 | `Date`        | `2025-02-01`                      | **first-of-month ISO — Step 2's `period_month`**               |
+|   5 | `Report_Type` | `PnL` / `CFS`                     | segments PnL vs Cash Flow                                      |
+|   6 | `GFB_Code`    | `7001-EX-RV-LC` / `SUMMARY`       | full GFB code                                                  |
+|   7 | `Description` | `Direct Revenue: iGV Partner Fee` | line label                                                     |
+|   8 | `Amount`      | `50000`                           | numeric LKR                                                    |
 
 > The committed reference is split across [master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs)
 > and [master-audit-tall-sync.gs](../../appscript/master-audit-tall-sync.gs), which is the
@@ -150,7 +154,7 @@ Files: [sync.ts](../../src/integrations/googleSheets/sync.ts),
 2. **Parse** — `mapper.ts` `parseRow()` turns each raw row into a `ParsedRow`:
    - Maps `LC` → entity name via `LC_CODE_TO_NAME`. Unknown LC → row dropped.
    - Looks up `GFB_Code` in the **exact `GFB_DICTIONARY`** to get `{ category, functionCode,
-     balanceField }`. (This replaced the old prefix/keyword heuristics — see note below.)
+balanceField }`. (This replaced the old prefix/keyword heuristics — see note below.)
    - Categories: `revenue`, `cost`, `balance_sheet`, `cash_flow`, `unknown`.
 3. **Aggregate** — `sync.ts` groups rows by `(entityName, periodMonth)` and accumulates:
    - PnL: `totalRevenue`, `totalCost`, plus per-`FunctionCode` revenue/cost.
@@ -164,11 +168,11 @@ Files: [sync.ts](../../src/integrations/googleSheets/sync.ts),
 4. **Upsert** — into Supabase:
    - `monthly_metrics` — upsert on `(entity_id, period_month)`.
    - `revenue_streams` / `cost_breakdown` — **delete-then-insert** per `(entity_id,
-     period_month)` (no unique constraint on the function dimension), one row per function
+period_month)` (no unique constraint on the function dimension), one row per function
      with a non-zero amount.
 
 > **Heuristic → dictionary migration.** Older docs describe classification by GFB-code
-> *prefix* (`7xxx`=PnL, `1xxx`=CFS) and function-code-by-keyword matching. The current
+> _prefix_ (`7xxx`=PnL, `1xxx`=CFS) and function-code-by-keyword matching. The current
 > `mapper.ts` uses an **exact dictionary** (`GFB_DICTIONARY`) keyed on the full GFB code
 > (e.g. `7001-EX-RV-LC`). Treat `mapper.ts` as the source of truth.
 
@@ -176,20 +180,21 @@ Files: [sync.ts](../../src/integrations/googleSheets/sync.ts),
 
 ## 3. Secret & key handling (trust model)
 
-| Secret / key | Stored where | Reaches browser? | Purpose |
-|--------------|-------------|:---------------:|---------|
-| User Supabase JWT | Browser session | n/a (originates there) | Authn/authz to the Edge Function |
-| `APPSCRIPT_WEBHOOK_URL` | Edge Function secret | ❌ | Where the Edge Function calls AppScript |
-| `APPSCRIPT_SECRET` / `WEBHOOK_SECRET` | Edge Function secret + AppScript Script Property | ❌ | Shared secret AppScript checks in `doPost` |
-| `VITE_GOOGLE_SHEETS_API_KEY` | `.env`, **bundled into browser** | ✅ (known limitation) | Step 2 read of the master tab |
-| `VITE_SUPABASE_URL` / anon key | Browser | ✅ (safe by design) | RLS-enforced DB access |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server only (no `VITE_` prefix) | ❌ | Admin server ops (not used by this sync) |
+| Secret / key                          | Stored where                                     |    Reaches browser?    | Purpose                                    |
+| ------------------------------------- | ------------------------------------------------ | :--------------------: | ------------------------------------------ |
+| User Supabase JWT                     | Browser session                                  | n/a (originates there) | Authn/authz to the Edge Function           |
+| `APPSCRIPT_WEBHOOK_URL`               | Edge Function secret                             |           ❌           | Where the Edge Function calls AppScript    |
+| `APPSCRIPT_SECRET` / `WEBHOOK_SECRET` | Edge Function secret + AppScript Script Property |           ❌           | Shared secret AppScript checks in `doPost` |
+| `VITE_GOOGLE_SHEETS_API_KEY`          | `.env`, **bundled into browser**                 | ✅ (known limitation)  | Step 2 read of the master tab              |
+| `VITE_SUPABASE_URL` / anon key        | Browser                                          |  ✅ (safe by design)   | RLS-enforced DB access                     |
+| `SUPABASE_SERVICE_ROLE_KEY`           | Server only (no `VITE_` prefix)                  |           ❌           | Admin server ops (not used by this sync)   |
 
 **Trust boundaries:**
+
 - The **only** privileged secret-bearing hop (browser → AppScript) is gated behind the Edge
   Function's JWT + `mc_user` check. The browser can never call the AppScript webhook directly
   because it never sees the URL or secret.
-- The **Step 2 read** is *not* gated server-side — it uses the public Sheets API key baked
+- The **Step 2 read** is _not_ gated server-side — it uses the public Sheets API key baked
   into the bundle. Anyone with the bundle can read `MASTER_COMBINED_TALL`. The master sheet
   must therefore be considered "readable by anyone with the API key + sheet ID". The
   **writes** that result are still RLS-protected (only MC can write finance tables).
@@ -199,7 +204,7 @@ Files: [sync.ts](../../src/integrations/googleSheets/sync.ts),
 ## 4. Known issues / deviations (sync-specific)
 
 1. **Sheets API key exposed in the browser bundle** — inherent to the client-side Step 2.
-  Mitigation would be to move the read into the Edge Function too.
+   Mitigation would be to move the read into the Edge Function too.
 2. **Stale re-export in [googleSheets/index.ts](../../src/integrations/googleSheets/index.ts)** —
    it re-exports `classifyRow` and `descriptionToFunctionCode`, which no longer exist in
    `mapper.ts` (replaced by `getGfbMapping`). Harmless only as long as nothing imports them;
@@ -222,9 +227,10 @@ Apps Script editor. The committed copy:
   **instead of a hardcoded string**, so no live secret is committed to git.
 
 **To deploy / sync the committed copy back to Apps Script:**
+
 1. Apps Script editor → Project Settings → Script Properties → add `WEBHOOK_SECRET` (and, if
    you externalize them, the spreadsheet IDs).
-2. Paste the committed `.gs` content, deploy as a Web App (Execute as: *me*; Access: *Anyone*),
+2. Paste the committed `.gs` content, deploy as a Web App (Execute as: _me_; Access: _Anyone_),
    and keep the deployment URL in the Edge Function's `APPSCRIPT_WEBHOOK_URL` secret.
 
 ---
@@ -256,14 +262,14 @@ Admin "Run Audit Sync"  (MC only)
 
 ### 6.2 Source structure — "LEY Consolidation" tab
 
-The source is the **`LEY Consolidation`** tab of the *EFB Audit Performance Dashboard*
+The source is the **`LEY Consolidation`** tab of the _EFB Audit Performance Dashboard_
 workbook — three **stacked LC × month matrices** (col B = section label / LC code; data from
 col C; month headers are dates):
 
-| Block (col B) | Cell values |
-|---|---|
-| `Audit Results` | `Pass` / `Fail` |
-| `Audit Scores` | fraction `0..1` (e.g. `0.93`) |
+| Block (col B)         | Cell values                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| `Audit Results`       | `Pass` / `Fail`                                              |
+| `Audit Scores`        | fraction `0..1` (e.g. `0.93`)                                |
 | `Quality Improvement` | month-over-month Δ of score (**derived; ignored on ingest**) |
 
 QI is exactly `score[m] − score[m−1]`, so it is **not stored** — the audit page recomputes it
@@ -280,9 +286,10 @@ One project = one `doPost`, so route on `params.sync`. The committed reference a
 this branch; keep the deployed Apps Script project aligned with it:
 
 ```js
-var result = (params.sync === "audit")
-  ? syncAuditConsolidationMasterSheet(params.month || null)
-  : syncCombinedTallMasterSheet(params.mode || "all", params.term || null, params.month || null);
+var result =
+  params.sync === "audit"
+    ? syncAuditConsolidationMasterSheet(params.month || null)
+    : syncCombinedTallMasterSheet(params.mode || "all", params.term || null, params.month || null);
 ```
 
 `syncAuditConsolidationMasterSheet(filterMonth?)` opens `AUDIT_SPREADSHEET_ID` →
@@ -295,16 +302,16 @@ Config constants (not secrets): `AUDIT_SPREADSHEET_ID` (**must be filled in**),
 **Output schema** (`MASTER_AUDIT_TALL`; the contract `auditSync.ts` depends on), one row per
 `(LC, month)`:
 
-| Col | Header | Example | → `audit_scores` |
-|----:|--------|---------|------------------|
-| 0 | `LC` | `Kandy` / `CC` | short code/name → entity via `AUDIT_LC_TO_CODE` |
-| 1 | `LC_Term` | `25-26` | — |
-| 2 | `Year` | `2025` | — |
-| 3 | `Month` | `Jul` | — |
-| 4 | `Date` | `2025-07-01` | `period_month` |
-| 5 | `Audit_Result` | `Pass` / `Fail` | `remarks` |
-| 6 | `Audit_Score` | `0.93` | `score` (**raw fraction, no scaling**) |
-| 7 | `Quality_Improvement` | `0.06` | **parsed but not stored** (derived in UI) |
+| Col | Header                | Example         | → `audit_scores`                                |
+| --: | --------------------- | --------------- | ----------------------------------------------- |
+|   0 | `LC`                  | `Kandy` / `CC`  | short code/name → entity via `AUDIT_LC_TO_CODE` |
+|   1 | `LC_Term`             | `25-26`         | —                                               |
+|   2 | `Year`                | `2025`          | —                                               |
+|   3 | `Month`               | `Jul`           | —                                               |
+|   4 | `Date`                | `2025-07-01`    | `period_month`                                  |
+|   5 | `Audit_Result`        | `Pass` / `Fail` | `remarks`                                       |
+|   6 | `Audit_Score`         | `0.93`          | `score` (**raw fraction, no scaling**)          |
+|   7 | `Quality_Improvement` | `0.06`          | **parsed but not stored** (derived in UI)       |
 
 ### 6.4 Edge Function — shared, routed by `sync`
 
@@ -319,8 +326,8 @@ File: [src/integrations/googleSheets/auditSync.ts](../../src/integrations/google
 
 - `fetchSheetData(MASTER_SHEET_ID, "MASTER_AUDIT_TALL!A1:H10000")` (reuses the finance
   client + browser API key).
-- **`AUDIT_LC_TO_CODE`** normalizes the inconsistent audit labels (some are entity *codes*
-  `CC/CN/CS/NSBM/SLIIT/NIBM/USJ`, some are *names* `Kandy/Rajarata/Ruhuna` whose codes differ
+- **`AUDIT_LC_TO_CODE`** normalizes the inconsistent audit labels (some are entity _codes_
+  `CC/CN/CS/NSBM/SLIIT/NIBM/USJ`, some are _names_ `Kandy/Rajarata/Ruhuna` whose codes differ
   `KDY/RAJ/RUH`) → entity `code` → `entity_id`. The dashboard covers **10 LCs (no Jaffna)**.
 - Stores values **as-is**: `score` = fraction, `remarks` = Pass/Fail, `max_score` = `null`,
   `quarter` = `null`. QI not stored.
@@ -331,13 +338,13 @@ File: [src/integrations/googleSheets/auditSync.ts](../../src/integrations/google
 
 - [src/hooks/useAuditSync.ts](../../src/hooks/useAuditSync.ts) — two-step (trigger
   `sync:"audit"` → `syncAuditData()`), parallel to `useSheetSync`.
-- [_app.admin.tsx](../../src/routes/_app.admin.tsx) **"EFB Audit Sync"** card → **Run Audit
+- [\_app.admin.tsx](../../src/routes/_app.admin.tsx) **"EFB Audit Sync"** card → **Run Audit
   Sync** button. MC-only at **two layers**: the Admin route's `beforeLoad` redirects non-MC
   users, and the Edge Function rejects non-`mc_user` with 403.
 
 ### 6.7 Audit page UI
 
-[src/routes/_app.audit.tsx](../../src/routes/_app.audit.tsx) reads `audit_scores`, pivots to
+[src/routes/\_app.audit.tsx](../../src/routes/_app.audit.tsx) reads `audit_scores`, pivots to
 LC × month, and renders three sections in the system design language:
 
 - **Audit Results** — matrix; Pass → green `CheckCircle2`, Fail → red `XCircle`.
@@ -348,12 +355,12 @@ LC × month, and renders three sections in the system design language:
 
 ### 6.8 Deviations from the original "fully independent" plan
 
-| Original plan | As built | Why |
-|---|---|---|
-| Separate Apps Script project | **Same project**, new file, `doPost` routed by `sync` | Requirement: keep it in the same project; one project allows only one `doPost`. |
-| Separate `trigger-audit-sync` Edge Function w/ own secret | **Shared `trigger-sheet-sync`**, routed by `sync` | Same single AppScript endpoint/secret; less infra. |
-| New folder paralleling `googleSheets/` | **Single `auditSync.ts`** | Audit ingest is one tab → one file is enough. |
-| Decide if `efb_user` may trigger | **MC-only** (Admin guard + Edge Function) | `audit_scores` is EFB-writable per RBAC, but the trigger was scoped to MC by request. Loosen the Edge Function role check if EFB should trigger. |
+| Original plan                                             | As built                                              | Why                                                                                                                                              |
+| --------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Separate Apps Script project                              | **Same project**, new file, `doPost` routed by `sync` | Requirement: keep it in the same project; one project allows only one `doPost`.                                                                  |
+| Separate `trigger-audit-sync` Edge Function w/ own secret | **Shared `trigger-sheet-sync`**, routed by `sync`     | Same single AppScript endpoint/secret; less infra.                                                                                               |
+| New folder paralleling `googleSheets/`                    | **Single `auditSync.ts`**                             | Audit ingest is one tab → one file is enough.                                                                                                    |
+| Decide if `efb_user` may trigger                          | **MC-only** (Admin guard + Edge Function)             | `audit_scores` is EFB-writable per RBAC, but the trigger was scoped to MC by request. Loosen the Edge Function role check if EFB should trigger. |
 
 ### 6.9 To go live (manual, outside code)
 
@@ -368,19 +375,20 @@ Then **Admin → Run Audit Sync** runs the whole chain and the EFB Audit tab pop
 
 ## 7. File index
 
-| Layer | File |
-|-------|------|
-| Admin UI (buttons, results) | [src/routes/_app.admin.tsx](../../src/routes/_app.admin.tsx) |
-| Orchestration hook (finance) | [src/hooks/useSheetSync.ts](../../src/hooks/useSheetSync.ts) |
-| Edge Function proxy (shared) | [supabase/functions/trigger-sheet-sync/index.ts](../../supabase/functions/trigger-sheet-sync/index.ts) |
-| AppScript — finance (committed copy) | [appscript/master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs) |
-| Sheets API client (shared) | [src/integrations/googleSheets/client.ts](../../src/integrations/googleSheets/client.ts) |
-| Row parser + GFB dictionary | [src/integrations/googleSheets/mapper.ts](../../src/integrations/googleSheets/mapper.ts) |
-| Aggregate + upsert (finance) | [src/integrations/googleSheets/sync.ts](../../src/integrations/googleSheets/sync.ts) |
-| Public exports | [src/integrations/googleSheets/index.ts](../../src/integrations/googleSheets/index.ts) |
-| **Audit — AppScript (committed copy)** | [appscript/master-audit-tall-sync.gs](../../appscript/master-audit-tall-sync.gs) |
-| **Audit — client pull → `audit_scores`** | [src/integrations/googleSheets/auditSync.ts](../../src/integrations/googleSheets/auditSync.ts) |
-| **Audit — orchestration hook** | [src/hooks/useAuditSync.ts](../../src/hooks/useAuditSync.ts) |
-| **Audit — page UI (matrix + charts)** | [src/routes/_app.audit.tsx](../../src/routes/_app.audit.tsx) |
+| Layer                                    | File                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Admin UI (buttons, results)              | [src/routes/\_app.admin.tsx](../../src/routes/_app.admin.tsx)                                          |
+| Orchestration hook (finance)             | [src/hooks/useSheetSync.ts](../../src/hooks/useSheetSync.ts)                                           |
+| Edge Function proxy (shared)             | [supabase/functions/trigger-sheet-sync/index.ts](../../supabase/functions/trigger-sheet-sync/index.ts) |
+| AppScript — finance (committed copy)     | [appscript/master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs)                 |
+| Sheets API client (shared)               | [src/integrations/googleSheets/client.ts](../../src/integrations/googleSheets/client.ts)               |
+| Row parser + GFB dictionary              | [src/integrations/googleSheets/mapper.ts](../../src/integrations/googleSheets/mapper.ts)               |
+| Aggregate + upsert (finance)             | [src/integrations/googleSheets/sync.ts](../../src/integrations/googleSheets/sync.ts)                   |
+| Public exports                           | [src/integrations/googleSheets/index.ts](../../src/integrations/googleSheets/index.ts)                 |
+| **Audit — AppScript (committed copy)**   | [appscript/master-audit-tall-sync.gs](../../appscript/master-audit-tall-sync.gs)                       |
+| **Audit — client pull → `audit_scores`** | [src/integrations/googleSheets/auditSync.ts](../../src/integrations/googleSheets/auditSync.ts)         |
+| **Audit — orchestration hook**           | [src/hooks/useAuditSync.ts](../../src/hooks/useAuditSync.ts)                                           |
+| **Audit — page UI (matrix + charts)**    | [src/routes/\_app.audit.tsx](../../src/routes/_app.audit.tsx)                                          |
+
 </content>
 </invoke>

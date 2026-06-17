@@ -2,12 +2,27 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
+import { isSupabaseConfigured } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
 });
 
 function AppLayout() {
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
+        <div className="max-w-lg rounded-lg border bg-card p-6 text-center shadow-sm">
+          <h1 className="text-xl font-semibold">Deployment misconfiguration</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This deployment is missing Supabase env vars. Set VITE_SUPABASE_URL and
+            VITE_SUPABASE_PUBLISHABLE_KEY in deployment before using the app.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AuthProvider>
       <Gate />

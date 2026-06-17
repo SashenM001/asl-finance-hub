@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet } from "lucide-react";
+import { isSupabaseConfigured } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -20,9 +21,16 @@ function LoginPage() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  const configMissing = !isSupabaseConfigured();
 
   // Check for existing session on mount — redirect if already logged in
   useEffect(() => {
+    if (configMissing) {
+      setChecking(false);
+      setErr("This deployment is missing Supabase env vars.");
+      return;
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         navigate({ to: "/" });
@@ -30,7 +38,7 @@ function LoginPage() {
         setChecking(false);
       }
     });
-  }, [navigate]);
+  }, [configMissing, navigate]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,7 +131,7 @@ function LoginPage() {
                 {err}
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || configMissing}>
               {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
             </Button>
             <button
