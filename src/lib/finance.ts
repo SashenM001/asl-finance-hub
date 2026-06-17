@@ -172,48 +172,48 @@ export function formatEntityName(name: string) {
 //     netProfit: 0,
 //   };
 
-  rows.forEach(({ gfbCode, amount }) => {
-    // Income
-    if (/^700[1-5]/.test(gfbCode)) metrics.igvIncome += amount;
-    else if (/^700[6-8]/.test(gfbCode)) metrics.ogvIncome += amount;
-    else if (/^70(09|1[0126789])/.test(gfbCode)) metrics.igtIncome += amount;
-    else if (/^70(1[345]|2[012])/.test(gfbCode)) metrics.ogtIncome += amount;
-    
-    else if (/^71(0[1-9]|1[01])/.test(gfbCode)) metrics.ewaIncome += amount;
-    else if (/^730[12]/.test(gfbCode)) metrics.conferenceIncome += amount;
-    else if (/^730[3-9]/.test(gfbCode)) metrics.pmIncome += amount;
-    else if (/^7501/.test(gfbCode)) metrics.miscIncome += amount;
-
-    // Expenses
-    else if (/^760[1-4]/.test(gfbCode)) metrics.igvExpense += amount;
-    else if (/^760[5-7]/.test(gfbCode)) metrics.ogvExpense += amount;
-    else if (/^76(0[89]|10|1[456])/.test(gfbCode)) metrics.igtExpense += amount;
-    else if (/^76(1[123789])/.test(gfbCode)) metrics.ogtExpense += amount;
-
-    else if (/^770[1-6]/.test(gfbCode)) metrics.ewaExpense += amount;
-    else if (/^7901/.test(gfbCode)) metrics.conferenceExpense += amount;
-    else if (/^8108/.test(gfbCode)) metrics.natConferenceExpense += amount;
-    else if (/^8207/.test(gfbCode)) metrics.nmfExpense += amount;
-    else if (/^790[2-5]/.test(gfbCode)) metrics.pmExpense += amount;
-    else if (
-      /^800[12]/.test(gfbCode) ||
-      /^810[1-79]/.test(gfbCode) ||
-      /^820[1-68]/.test(gfbCode) ||
-      /^840[12]/.test(gfbCode)
-    ) {
-      metrics.miscExpense += amount;
-    }
-  });
-
-  // Calculate Aggregates
-  metrics.eldIncome = metrics.igvIncome + metrics.ogvIncome + metrics.igtIncome + metrics.ogtIncome;
-  metrics.totalIncome = metrics.eldIncome + metrics.ewaIncome + metrics.conferenceIncome + metrics.pmIncome + metrics.miscIncome;
-
-  metrics.eldExpense = metrics.igvExpense + metrics.ogvExpense + metrics.igtExpense + metrics.ogtExpense;
-  metrics.totalExpense = metrics.eldExpense + metrics.ewaExpense + metrics.conferenceExpense + metrics.natConferenceExpense + metrics.nmfExpense + metrics.pmExpense + metrics.miscExpense;
-
-  metrics.grossProfit = metrics.eldIncome - metrics.eldExpense;
-  metrics.netProfit = metrics.totalIncome - metrics.totalExpense;
-
-  return metrics;
-}
+//   rows.forEach(({ gfbCode, amount }) => {
+//     // Income
+//     if (/^700[1-5]/.test(gfbCode)) metrics.igvIncome += amount;
+//     else if (/^700[6-8]/.test(gfbCode)) metrics.ogvIncome += amount;
+//     else if (/^70(09|1[0126789])/.test(gfbCode)) metrics.igtIncome += amount;
+//     else if (/^70(1[345]|2[012])/.test(gfbCode)) metrics.ogtIncome += amount;
+//
+//     else if (/^71(0[1-9]|1[01])/.test(gfbCode)) metrics.ewaIncome += amount;
+//     else if (/^730[12]/.test(gfbCode)) metrics.conferenceIncome += amount;
+//     else if (/^730[3-9]/.test(gfbCode)) metrics.pmIncome += amount;
+//     else if (/^7501/.test(gfbCode)) metrics.miscIncome += amount;
+//
+//     // Expenses
+//     else if (/^760[1-4]/.test(gfbCode)) metrics.igvExpense += amount;
+//     else if (/^760[5-7]/.test(gfbCode)) metrics.ogvExpense += amount;
+//     else if (/^76(0[89]|10|1[456])/.test(gfbCode)) metrics.igtExpense += amount;
+//     else if (/^76(1[123789])/.test(gfbCode)) metrics.ogtExpense += amount;
+//
+//     else if (/^770[1-6]/.test(gfbCode)) metrics.ewaExpense += amount;
+//     else if (/^7901/.test(gfbCode)) metrics.conferenceExpense += amount;
+//     else if (/^8108/.test(gfbCode)) metrics.natConferenceExpense += amount;
+//     else if (/^8207/.test(gfbCode)) metrics.nmfExpense += amount;
+//     else if (/^790[2-5]/.test(gfbCode)) metrics.pmExpense += amount;
+//     else if (
+//       /^800[12]/.test(gfbCode) ||
+//       /^810[1-79]/.test(gfbCode) ||
+//       /^820[1-68]/.test(gfbCode) ||
+//       /^840[12]/.test(gfbCode)
+//     ) {
+//       metrics.miscExpense += amount;
+//     }
+//   });
+//
+//   // Calculate Aggregates
+//   metrics.eldIncome = metrics.igvIncome + metrics.ogvIncome + metrics.igtIncome + metrics.ogtIncome;
+//   metrics.totalIncome = metrics.eldIncome + metrics.ewaIncome + metrics.conferenceIncome + metrics.pmIncome + metrics.miscIncome;
+//
+//   metrics.eldExpense = metrics.igvExpense + metrics.ogvExpense + metrics.igtExpense + metrics.ogtExpense;
+//   metrics.totalExpense = metrics.eldExpense + metrics.ewaExpense + metrics.conferenceExpense + metrics.natConferenceExpense + metrics.nmfExpense + metrics.pmExpense + metrics.miscExpense;
+//
+//   metrics.grossProfit = metrics.eldIncome - metrics.eldExpense;
+//   metrics.netProfit = metrics.totalIncome - metrics.totalExpense;
+//
+//   return metrics;
+// }
