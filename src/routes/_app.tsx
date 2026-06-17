@@ -1,8 +1,9 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -31,8 +32,9 @@ function AppLayout() {
 }
 
 function Gate() {
-  const { loading, user, roles } = useAuth();
+  const { loading, user, roles, signOut } = useAuth();
   const navigate = useNavigate();
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -59,12 +61,30 @@ function Gate() {
   if (roles.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="max-w-md rounded-lg border bg-card p-6 text-center">
+        <div className="max-w-md rounded-lg border bg-card p-6 text-center shadow-sm">
           <h2 className="text-lg font-semibold">No role assigned</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Your account doesn't have a role yet. Please contact an MC administrator to assign you a
             role (LC, MC, or EFB) and an entity if you're an LC user.
           </p>
+          <div className="mt-6 flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                setSigningOut(true);
+                try {
+                  await signOut();
+                  navigate({ to: "/login", replace: true });
+                } finally {
+                  setSigningOut(false);
+                }
+              }}
+              disabled={signingOut}
+            >
+              {signingOut ? "Signing out…" : "Sign out"}
+            </Button>
+          </div>
         </div>
       </div>
     );
