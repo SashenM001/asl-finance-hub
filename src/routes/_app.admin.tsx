@@ -2,12 +2,25 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { fetchEntities, type Entity } from "@/lib/finance";
 import { useAuth, type AppRole } from "@/lib/auth";
-import { useSheetSync } from "@/hooks/useSheetSync";
+import { useSheetSync, type SyncMode } from "@/hooks/useSheetSync";
 import { AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
@@ -16,7 +29,10 @@ export const Route = createFileRoute("/_app/admin")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
     if (!data.session) throw redirect({ to: "/login" });
-    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.session.user.id);
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.session.user.id);
     const isMC = (roles ?? []).some((r) => r.role === "mc_user");
     if (!isMC) throw redirect({ to: "/overview" });
   },
@@ -46,45 +62,69 @@ function AdminPage() {
       supabase.from("user_roles").select("user_id,role"),
     ]);
     setEntities(e);
-    const profiles = (p.data ?? []) as { user_id: string; full_name: string | null; email: string | null; entity_id: string | null }[];
+    const profiles = (p.data ?? []) as {
+      user_id: string;
+      full_name: string | null;
+      email: string | null;
+      entity_id: string | null;
+    }[];
     const rolesByUser = new Map<string, AppRole>();
-    ((r.data ?? []) as { user_id: string; role: AppRole }[]).forEach((x) => rolesByUser.set(x.user_id, x.role));
+    ((r.data ?? []) as { user_id: string; role: AppRole }[]).forEach((x) =>
+      rolesByUser.set(x.user_id, x.role),
+    );
     setUsers(profiles.map((p) => ({ ...p, role: rolesByUser.get(p.user_id) ?? null })));
     setPageLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  const TERMS = ["24-25", "25-26", "26-27"]; // append each new term here annually
+  const [syncMode, setSyncMode] = useState<SyncMode>("current");
+  const [syncTerm, setSyncTerm] = useState<string>(TERMS[TERMS.length - 1]);
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleSync = async () => {
-    await sync();
-    toast.success("Google Sheets sync completed! Check results below.");
-    // Optionally reload data after sync
-    setTimeout(() => load(), 1000);
+    await sync({ mode: syncMode, term: syncMode === "term" ? syncTerm : undefined });
   };
 
   const setRole = async (uid: string, role: AppRole) => {
     // Remove existing roles, then insert new
     await supabase.from("user_roles").delete().eq("user_id", uid);
     const { error } = await supabase.from("user_roles").insert({ user_id: uid, role });
-    if (error) toast.error(error.message); else { toast.success("Role updated"); load(); }
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Role updated");
+      load();
+    }
   };
 
   const setEntity = async (uid: string, entity_id: string | null) => {
     const { error } = await supabase.from("profiles").update({ entity_id }).eq("user_id", uid);
-    if (error) toast.error(error.message); else { toast.success("Entity updated"); load(); }
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Entity updated");
+      load();
+    }
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold">Admin — Users &amp; Roles</h2>
-        <p className="text-sm text-muted-foreground">Assign roles and entities. Only MC users see this page.</p>
+        <p className="text-sm text-muted-foreground">
+          Assign roles and entities. Only MC users see this page.
+        </p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">All users ({users.length})</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">All users ({users.length})</CardTitle>
+        </CardHeader>
         <CardContent>
-          {pageLoading ? <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div> : (
+          {pageLoading ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -98,11 +138,21 @@ function AdminPage() {
               <TableBody>
                 {users.map((u) => (
                   <TableRow key={u.user_id}>
-                    <TableCell>{u.full_name ?? "—"}{u.user_id === user?.id && <span className="ml-1 text-xs text-muted-foreground">(you)</span>}</TableCell>
+                    <TableCell>
+                      {u.full_name ?? "—"}
+                      {u.user_id === user?.id && (
+                        <span className="ml-1 text-xs text-muted-foreground">(you)</span>
+                      )}
+                    </TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>
-                      <Select value={u.role ?? ""} onValueChange={(v) => setRole(u.user_id, v as AppRole)}>
-                        <SelectTrigger className="w-40"><SelectValue placeholder="No role" /></SelectTrigger>
+                      <Select
+                        value={u.role ?? ""}
+                        onValueChange={(v) => setRole(u.user_id, v as AppRole)}
+                      >
+                        <SelectTrigger className="w-40">
+                          <SelectValue placeholder="No role" />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="lc_user">LC user</SelectItem>
                           <SelectItem value="mc_user">MC user</SelectItem>
@@ -111,11 +161,20 @@ function AdminPage() {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Select value={u.entity_id ?? "none"} onValueChange={(v) => setEntity(u.user_id, v === "none" ? null : v)}>
-                        <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                      <Select
+                        value={u.entity_id ?? "none"}
+                        onValueChange={(v) => setEntity(u.user_id, v === "none" ? null : v)}
+                      >
+                        <SelectTrigger className="w-44">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">— None —</SelectItem>
-                          {entities.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                          {entities.map((e) => (
+                            <SelectItem key={e.id} value={e.id}>
+                              {e.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -129,24 +188,52 @@ function AdminPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Google Sheets Sync</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Google Sheets Sync</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Automatically fetch and sync financial data from Google Sheets. Requires <code className="text-xs bg-muted px-2 py-1 rounded">VITE_GOOGLE_SHEETS_API_KEY</code> in .env
+            Triggers AppScript to refresh the master sheet, then pulls data into Supabase.
           </p>
-          
-          <Button 
-            onClick={handleSync} 
-            disabled={loading}
-            className="w-full"
-          >
+
+          {/* Sync mode selector */}
+          <div className="flex gap-2">
+            {(["current", "term", "all"] as SyncMode[]).map((m) => (
+              <Button
+                key={m}
+                variant={syncMode === m ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSyncMode(m)}
+              >
+                {m === "current" ? "Current Month" : m === "term" ? "By Term" : "Sync All"}
+              </Button>
+            ))}
+          </div>
+
+          {/* Term selector — only when mode is "term" */}
+          {syncMode === "term" && (
+            <Select value={syncTerm} onValueChange={setSyncTerm}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TERMS.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <Button onClick={handleSync} disabled={loading} className="w-full">
             {loading ? (
               <>
                 <Clock className="mr-2 h-4 w-4 animate-spin" />
                 Syncing…
               </>
             ) : (
-              "Sync from Google Sheets"
+              "Run Sync"
             )}
           </Button>
 
@@ -160,24 +247,25 @@ function AdminPage() {
                 )}
                 <div className="space-y-1 flex-1">
                   <AlertDescription className="font-semibold">{result.message}</AlertDescription>
+                  {result.webhookRows != null && (
+                    <AlertDescription className="text-xs">
+                      Sheet rows refreshed: {result.webhookRows}
+                    </AlertDescription>
+                  )}
                   {result.metricsInserted > 0 && (
                     <AlertDescription className="text-xs">
-                      📊 {result.metricsInserted} metrics
+                      {result.metricsInserted} metrics · {result.revenueInserted} revenue ·{" "}
+                      {result.costInserted} cost entries
                     </AlertDescription>
                   )}
-                  {result.revenueInserted > 0 && (
-                    <AlertDescription className="text-xs">
-                      💰 {result.revenueInserted} revenue entries
-                    </AlertDescription>
-                  )}
-                  {result.costInserted > 0 && (
-                    <AlertDescription className="text-xs">
-                      📉 {result.costInserted} cost entries
+                  {(result.webhookWarnings ?? []).length > 0 && (
+                    <AlertDescription className="text-xs text-yellow-600">
+                      Warnings: {result.webhookWarnings!.join("; ")}
                     </AlertDescription>
                   )}
                   {result.errors.length > 0 && (
                     <AlertDescription className="text-xs">
-                      ⚠️ {result.errors.length} error(s): {result.errors.join("; ")}
+                      {result.errors.length} error(s): {result.errors.join("; ")}
                     </AlertDescription>
                   )}
                 </div>
@@ -195,10 +283,17 @@ function AdminPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">How invites work</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">How invites work</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>New users sign up themselves at the login page. After signup they appear here with no role — assign them an LC/MC/EFB role and (for LC) an entity.</p>
-          <Button variant="outline" onClick={load}>Refresh list</Button>
+          <p>
+            New users sign up themselves at the login page. After signup they appear here with no
+            role — assign them an LC/MC/EFB role and (for LC) an entity.
+          </p>
+          <Button variant="outline" onClick={load}>
+            Refresh list
+          </Button>
         </CardContent>
       </Card>
     </div>

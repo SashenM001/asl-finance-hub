@@ -7,12 +7,42 @@ export const Route = createFileRoute("/_app/contacts")({
 });
 
 const CONTACTS = [
-  { role: "MCVP Finance & Legal", name: "Agana", email: "agana.dassanayake@aiesec.net", phone: "+94 77 514 0747" },
-  { role: "MCVP Information Management", name: "Dinuka", email: "dinuka.avinash@aiesec.net", phone: "+94 77 548 6820" },
-  { role: "EFB Chair", name: "Tanuri", email: "tanuri.chandrasiri@aiesec.net", phone: "+94 76 977 9699" },
-  { role: "EFB Tech Support", name: "Gagana", email: "gaganaushan@aiesec.net", phone: "+94 77 365 0313" },
-  { role: "EFB Finance Support", name: "Thisura", email: "thisura.daksina@aiesec.net", phone: "+94 71 679 3977" },
-  { role: "</Dev.Team> Support", name: "Amzal", email: "amzal.foumi@aiesec.net", phone: "+94 70 158 8018" },
+  {
+    role: "MCVP Finance & Legal",
+    name: "Agana",
+    email: "agana.dassanayake@aiesec.net",
+    phone: "+94 77 514 0747",
+  },
+  {
+    role: "MCVP Information Management",
+    name: "Dinuka",
+    email: "dinuka.avinash@aiesec.net",
+    phone: "+94 77 548 6820",
+  },
+  {
+    role: "EFB Chair",
+    name: "Tanuri",
+    email: "tanuri.chandrasiri@aiesec.net",
+    phone: "+94 76 977 9699",
+  },
+  {
+    role: "EFB Tech Support",
+    name: "Gagana",
+    email: "gaganaushan@aiesec.net",
+    phone: "+94 77 365 0313",
+  },
+  {
+    role: "EFB Finance Support",
+    name: "Thisura",
+    email: "thisura.daksina@aiesec.net",
+    phone: "+94 71 679 3977",
+  },
+  {
+    role: "</Dev.Team> Support",
+    name: "Amzal",
+    email: "amzal.foumi@aiesec.net",
+    phone: "+94 70 158 8018",
+  },
 ];
 
 function ContactsPage() {
@@ -31,8 +61,20 @@ function ContactsPage() {
               <p className="text-sm text-muted-foreground">{c.name}</p>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <a className="flex items-center gap-2 text-foreground hover:text-primary" href={`mailto:${c.email}`}><Mail className="h-4 w-4" />{c.email}</a>
-              <a className="flex items-center gap-2 text-foreground hover:text-primary" href={`tel:${c.phone}`}><Phone className="h-4 w-4" />{c.phone}</a>
+              <a
+                className="flex items-center gap-2 text-foreground hover:text-primary"
+                href={`mailto:${c.email}`}
+              >
+                <Mail className="h-4 w-4" />
+                {c.email}
+              </a>
+              <a
+                className="flex items-center gap-2 text-foreground hover:text-primary"
+                href={`tel:${c.phone}`}
+              >
+                <Phone className="h-4 w-4" />
+                {c.phone}
+              </a>
             </CardContent>
           </Card>
         ))}

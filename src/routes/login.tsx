@@ -50,7 +50,10 @@ function LoginPage() {
         // If email confirmation is enabled, Supabase returns user but no session.
         // Auto-sign in immediately since this is an internal AIESEC tool.
         if (!signUpData.session) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
           if (signInError) throw signInError;
         }
       } else {
@@ -83,7 +86,9 @@ function LoginPage() {
           </div>
           <CardTitle className="text-2xl">AIESEC SL Finance</CardTitle>
           <p className="text-sm text-muted-foreground">
-            {mode === "signin" ? "Sign in to access the finance intelligence dashboard" : "Create your account"}
+            {mode === "signin"
+              ? "Sign in to access the finance intelligence dashboard"
+              : "Create your account"}
           </p>
         </CardHeader>
         <CardContent>
@@ -96,13 +101,28 @@ function LoginPage() {
             )}
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Password</Label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
             </div>
-            {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
+            {err && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {err}
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
             </Button>
@@ -114,7 +134,8 @@ function LoginPage() {
               {mode === "signin" ? "No account? Sign up" : "Have an account? Sign in"}
             </button>
             <p className="text-center text-xs text-muted-foreground">
-              The first user to sign up automatically becomes MC admin and can assign roles to others.
+              The first user to sign up automatically becomes MC admin and can assign roles to
+              others.
             </p>
           </form>
         </CardContent>

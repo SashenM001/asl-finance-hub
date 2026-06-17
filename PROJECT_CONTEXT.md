@@ -1,8 +1,15 @@
 # AIESEC SL Finance Intelligence Dashboard - Project Context
 
-**Last Updated:** 24 April 2026  
-**Branch:** `sashen/dev`  
-**Status:** ✅ Build Successful | Schema Complete | Seed Data Pending
+**Last Updated:** 24 April 2026 · **Reconciled:** 2026-06-17  
+**Status:** ✅ Build Successful | Schema Complete | Live data via Google Sheets sync
+
+> [!NOTE]
+> **2026-06-17 reconcile:** the **tech-stack, function-code, and Google Sheets Integration**
+> sections were updated to match the current code. The original branch/date references and the
+> long phased roadmap below are historical. For the authoritative sync description see
+> [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md); for the current
+> architecture overview see [`CLAUDE.md`](CLAUDE.md). Trust the code over this file where they
+> conflict.
 
 ---
 
@@ -47,7 +54,10 @@ Colombo Central, Colombo North, Colombo South, Kandy, Jaffna, USJ, NSBM, Ruhuna,
 | `audit_scores` | Quarterly audits | entity_id, period_month, quarter, score, max_score, remarks |
 | `monthly_review` | Pass/fail tracker | entity_id, period_month, status, remarks, reviewed_by |
 
-**Function Codes:** `iGV`, `iGT`, `oGV`, `oGT`, `ELD`, `EwA`, `BD`
+**Function Codes** (current — source of truth `src/lib/finance.ts`): `iGV`, `iGT`, `oGV`,
+`oGT`, `ELD`, `EwA`, `Miscellaneous`, `NMF`, `Conference`, `National Conference Delegation`.
+The original 7-value migration enum (`…EwA, BD`) is stale — see the enum-drift note in
+[`CLAUDE.md`](CLAUDE.md).
 
 ---
 
@@ -107,9 +117,10 @@ can_read_entity(_user_id, _entity_id) → BOOLEAN
 
 | Layer | Tech |
 |-------|------|
-| **Backend** | Lovable Cloud, Postgres with RLS, Supabase |
-| **Frontend** | Vite, React, TypeScript |
-| **UI Components** | shadcn/ui, Recharts (charts) |
+| **Backend** | Self-managed Supabase (Postgres + RLS + Auth + Edge Functions) — *migrated off Lovable-managed Supabase* |
+| **Frontend** | Vite + TanStack Start, React 19, TypeScript |
+| **UI Components** | Radix UI / shadcn/ui, Recharts (charts) |
+| **External sync** | Google Sheets API v4 + a Google AppScript webhook, gated by the `trigger-sheet-sync` Edge Function |
 | **Database Migrations** | Supabase SQL |
 | **Package Manager** | npm |
 
@@ -136,11 +147,10 @@ npm run build # ✅ Successful (warning: chunk >500kB — not critical)
    - Supports single & multiple range queries
    - Handles API key authentication
 
-2. **Data Mapper with Auto-Detection** (`src/integrations/googleSheets/mapper.ts`) ✅
-   - Auto-detects column names (case-insensitive)
-   - Parses months in multiple formats
-   - Transforms sheet rows → DB schema types
-   - Handles missing values & normalization
+2. **Data Mapper** (`src/integrations/googleSheets/mapper.ts`) ✅
+   - Reads the fixed `MASTER_COMBINED_TALL` tall-format columns (LC, Term, Year, Month, Date, Report_Type, GFB_Code, Description, Amount)
+   - Classifies each row via an **exact `GFB_DICTIONARY`** (full GFB code → category / function / balance field) — *not* the old keyword/prefix auto-detection
+   - Maps LC code → entity name via `LC_CODE_TO_NAME`; normalizes Date → first-of-month `period_month`
 
 3. **Sync Orchestrator** (`src/integrations/googleSheets/sync.ts`) ✅
    - Fetches sheet data
@@ -164,11 +174,10 @@ npm run build # ✅ Successful (warning: chunk >500kB — not critical)
 
 ---
 
-**TO USE:**
-1. Follow [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) to get API key
-2. Add `VITE_GOOGLE_SHEETS_API_KEY=...` to `.env`
-3. Go to `/admin` → click "Sync from Google Sheets"
-4. Data populates automatically! 🎉
+**TO USE (current two-step flow):**
+1. Follow [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) to get the Sheets API key; add `VITE_GOOGLE_SHEETS_API_KEY=...` to `.env` (used for the step-2 read).
+2. Ensure the `trigger-sheet-sync` Edge Function is deployed and its `APPSCRIPT_WEBHOOK_URL` / `APPSCRIPT_SECRET` are set (see [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md)).
+3. Go to `/admin` → "Google Sheets Sync" card → pick a mode (Current Month / By Term / Sync All) → **Run Sync**. Step 1 rebuilds the master tab via AppScript; step 2 pulls it into Supabase.
 
 ---
 

@@ -1,8 +1,16 @@
 # ASL Finance Intelligence Dashboard — System Report
 
-> **Version**: 1.0 (Post-Migration)
-> **Date**: 24 April 2026
+> **Version**: 1.1 (Sync sections reconciled)
+> **Date**: 24 April 2026 · **Reconciled**: 2026-06-17
 > **Prepared for**: AIESEC Sri Lanka — Finance & Legal
+
+> [!NOTE]
+> **2026-06-17 reconcile:** the **data-pipeline (§5), enum (§3), and architecture (§1)**
+> sections have been updated to match the current Edge-Function + AppScript syncer. For the
+> authoritative, code-verified description of the sync, see
+> [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md). Other
+> sections of this report may still reflect the 24 April 2026 snapshot — trust the code where
+> they conflict.
 
 ---
 
@@ -39,7 +47,12 @@ graph TB
         Postgres["PostgreSQL Database<br/>9 Tables + RLS"]
     end
 
+    subgraph Edge ["Supabase Edge Function"]
+        Trigger["trigger-sheet-sync<br/>(JWT + mc_user check)"]
+    end
+
     subgraph External ["External Data"]
+        AppScript["Google AppScript<br/>doPost webhook"]
         GSheets["Google Sheets<br/>MASTER_COMBINED_TALL"]
     end
 
@@ -47,9 +60,15 @@ graph TB
     Auth -->|getSession / onAuthStateChange| AuthSvc
     Pages -->|Supabase JS Client| PostgREST
     PostgREST -->|RLS-enforced queries| Postgres
-    AppShell -->|Admin: Sync Button| GSheets
-    GSheets -->|Google Sheets API v4| PostgREST
+    AppShell -->|① Admin: Run Sync + JWT| Trigger
+    Trigger -->|② forward + secret| AppScript
+    AppScript -->|rebuild master tab| GSheets
+    GSheets -->|③ Sheets API v4 read| Pages
+    Pages -->|④ aggregate + upsert| PostgREST
 ```
+
+> See [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md) for the
+> full two-step flow, secret/key trust model, and known deviations.
 
 ### Key Design Decisions
 
@@ -57,7 +76,7 @@ graph TB
 |----------|-----------|
 | **SPA (not SSR)** | Internal tool; no SEO needed. Simpler deployment. |
 | **Supabase RLS** | Row-Level Security policies at the database level — even if the UI is bypassed, data isolation holds. |
-| **Client-side sync** | Google Sheets sync runs in the browser (Admin page). Avoids needing a backend server. Uses the public Sheets API with an API key. |
+| **Two-step server-gated sync** | Sync is a two-step flow: (1) the browser asks the `trigger-sheet-sync` Edge Function (JWT + `mc_user` gate) to run an AppScript webhook that rebuilds the `MASTER_COMBINED_TALL` tab; (2) the browser reads that tab via the public Sheets API and upserts to Postgres. The webhook URL + secret stay server-side; only the step-2 read uses a browser-exposed API key. |
 | **Proxy-based Supabase client** | Lazy initialization avoids crashes if env vars are missing during build. |
 | **First-user-as-admin** | The `handle_new_user()` trigger auto-assigns `mc_user` role to the first signup, bootstrapping the system. |
 
@@ -220,7 +239,15 @@ erDiagram
 ### Enums
 
 - **`app_role`**: `lc_user` | `mc_user` | `efb_user`
-- **`function_code`**: `iGV` | `iGT` | `oGV` | `oGT` | `ELD` | `EwA` | `BD`
+- **`function_code`** (current frontend list, source of truth = `src/lib/finance.ts`):
+  `iGV` | `iGT` | `oGV` | `oGT` | `ELD` | `EwA` | `Miscellaneous` | `NMF` | `Conference` |
+  `National Conference Delegation`
+
+> [!WARNING]
+> **Enum drift:** the original migration defined `function_code` as only 7 values
+> (`iGV, iGT, oGV, oGT, ELD, EwA, BD`). The 10-value list above is newer; the live Supabase
+> enum must have been altered out-of-band. Treat `src/lib/finance.ts` as the UI source of
+> truth and verify the live DB enum before relying on the migration file.
 
 ### Indexes
 
@@ -270,15 +297,24 @@ graph TD
 
 ## 5. Data Pipeline — Google Sheets Sync
 
-### Architecture
+> **Canonical reference:** [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md).
+> The summary below is kept current as of 2026-06-17.
+
+### Architecture (two-step)
 
 ```mermaid
 flowchart LR
-    A["Google Sheet<br/>MASTER_COMBINED_TALL<br/>7,214 rows"] -->|Google Sheets API v4<br/>API Key auth| B["client.ts<br/>HTTP fetch + parse"]
-    B --> C["mapper.ts<br/>classifyRow()<br/>extractFunctionCode()<br/>LC_CODE_TO_NAME"]
-    C --> D["sync.ts<br/>Group by (entity, month)<br/>Aggregate revenue/cost<br/>Calculate NPM/GPM"]
-    D -->|Upsert via PostgREST| E["Supabase DB<br/>monthly_metrics<br/>revenue_streams<br/>cost_breakdown"]
+    U["Admin UI<br/>useSheetSync"] -->|① POST mode/term/month + JWT| EF["Edge Function<br/>trigger-sheet-sync<br/>JWT + mc_user gate"]
+    EF -->|② forward + secret| AS["AppScript doPost<br/>rebuild master tab"]
+    AS --> GS["Google Sheet<br/>MASTER_COMBINED_TALL"]
+    GS -->|③ Sheets API v4<br/>API key read| B["client.ts<br/>fetchSheetData()"]
+    B --> C["mapper.ts<br/>parseRow() → GFB_DICTIONARY<br/>LC_CODE_TO_NAME"]
+    C --> D["sync.ts<br/>group by (entity, month)<br/>aggregate, derive NPM/liquidity"]
+    D -->|④ upsert via PostgREST| E["Supabase DB<br/>monthly_metrics<br/>revenue_streams<br/>cost_breakdown"]
 ```
+
+> The AppScript that performs step ② is mirrored at
+> [`appscript/master-combined-tall-sync.gs`](appscript/master-combined-tall-sync.gs).
 
 ### Sheet Format
 
@@ -296,23 +332,27 @@ flowchart LR
 
 ### Classification Logic
 
-| GFB Code Prefix | Report Type | Category |
-|-----------------|-------------|----------|
-| `7xxx` | PnL | Revenue or Cost (based on description keywords) |
-| `1xxx` | CFS | Balance Sheet |
-| Other | — | Unknown (skipped) |
+> [!IMPORTANT]
+> **Updated 2026-06-17.** Classification no longer relies on GFB-code *prefix* ranges or
+> description *keyword* matching. `mapper.ts` now uses an **exact `GFB_DICTIONARY`** keyed on
+> the full GFB code (e.g. `7001-EX-RV-LC`). Each entry maps to
+> `{ category, functionCode, balanceField }`.
+
+| `category` | Source codes (examples) | Where it lands |
+|-----------|-------------------------|----------------|
+| `revenue` | `7001-EX-RV-LC` … `7501-NE-RV-LC` | `total_revenue` + `revenue_streams` per function |
+| `cost` | `7601-EX-CO-LC` … `8402-NE-CO-LC` | `total_cost` + `cost_breakdown` per function |
+| `cash_flow` | `13xx-OA-CI-LC` (inflow), `14xx-OA-CO-LC` (outflow) | `inflow` / `outflow` |
+| `balance_sheet` | `85xx`/`86xx`/`87xx`/`88xx` | `bank_balance`, `assets`, `receivables`, `petty_cash`, `reserves`, `equity`, `liabilities` |
+| `unknown` | any code not in the dictionary | skipped |
 
 ### Function Code Extraction
 
-The mapper matches description keywords to function codes:
-
-- **iGV**: "igv", "incoming global volunteer"
-- **iGT**: "igt", "incoming global talent"
-- **oGV**: "ogv", "outgoing global volunteer"
-- **oGT**: "ogt", "outgoing global talent"
-- **ELD**: "eld", "emerging leaders"
-- **EwA**: "ewa", "engage with aiesec"
-- **BD**: "bd", "business dev"
+The dictionary assigns each revenue/cost code a `FunctionCode` directly. The function set is
+the 10-value list in §3 (`iGV, iGT, oGV, oGT, ELD, EwA, Miscellaneous, NMF, Conference,
+National Conference Delegation`) — **not** the old 7-value keyword scheme. See
+[`src/integrations/googleSheets/mapper.ts`](src/integrations/googleSheets/mapper.ts) for the
+full `GFB_DICTIONARY`.
 
 ### Sync Statistics (Last Run)
 
@@ -493,7 +533,7 @@ The mapper matches description keywords to function codes:
 | 3 | `budget_actual`, `audit_scores`, `monthly_review` tables are empty | Budget, Audit, and Review pages show "No data" |
 | 4 | Rankings, Health Index, OD Score are always 0 | Home page shows #0 for rankings — needs manual data or AI formula |
 | 5 | No mobile hamburger menu | Sidebar hidden on mobile, no way to navigate |
-| 6 | Google Sheets sync runs client-side | API key exposed in browser; sync tied to user session |
+| 6 | Google Sheets sync is partly client-side | The **trigger** is now server-gated via the `trigger-sheet-sync` Edge Function (JWT + `mc_user`), but the **step-2 read** of the master tab still runs in the browser with `VITE_GOOGLE_SHEETS_API_KEY` (exposed in the bundle). Also: the Edge Function + AppScript currently hold their secrets **hardcoded** rather than in env vars — see syncer-architecture doc §2.2/§4. |
 
 ### Low
 
@@ -522,7 +562,7 @@ The mapper matches description keywords to function codes:
 
 | Task | Effort | Risk Addressed |
 |------|--------|---------------|
-| **Move Google Sheets sync to Edge Function** | 2-3 days | API key currently exposed in client bundle. Move to Supabase Edge Function with `SUPABASE_SERVICE_ROLE_KEY` and schedule via cron |
+| **Finish moving sync server-side** | 1-2 days | ⏳ Partially done — the trigger now runs through the `trigger-sheet-sync` Edge Function. Remaining: (a) revert the Edge Function + AppScript to read secrets from env / Script Properties instead of hardcoded values and rotate them; (b) optionally move the step-2 master-tab read into the Edge Function so `VITE_GOOGLE_SHEETS_API_KEY` leaves the bundle; (c) optionally schedule via cron |
 | **Rate limiting on auth** | 1 day | Prevent brute-force attacks on login. Configure Supabase Auth rate limits |
 | **Fix admin `beforeLoad`** | 0.5 day | Replace with component-level guard like `_app.tsx` |
 | **Audit logging** | 2 days | Log all role changes, entity assignments, and data modifications with timestamps and actor |
