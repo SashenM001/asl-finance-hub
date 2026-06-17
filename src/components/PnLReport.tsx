@@ -1,16 +1,16 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { fmtCurrency } from "@/lib/finance";
 
-export const PNL_MAPPING = {
-  "iGV income": ["7001-EX-RV-LC", "7002-EX-RV-LC", "7003-EX-RV-LC", "7004-EX-RV-LC", "7005-EX-RV-LC"],
-  "iGT income": ["7009-EX-RV-LC", "7010-EX-RV-LC", "7011-EX-RV-LC", "7012-EX-RV-LC", "7016-EX-RV-LC", "7017-EX-RV-LC", "7018-EX-RV-LC", "7019-EX-RV-LC"],
-  "oGV income": ["7006-EX-RV-LC", "7007-EX-RV-LC", "7008-EX-RV-LC"],
-  "oGT income": ["7013-EX-RV-LC", "7014-EX-RV-LC", "7015-EX-RV-LC", "7020-EX-RV-LC", "7021-EX-RV-LC", "7022-EX-RV-LC"],
-  "iGV expenses": ["7601-EX-CO-LC", "7602-EX-CO-LC", "7603-EX-CO-LC", "7604-EX-CO-LC"],
-  "iGT expenses": ["7608-EX-CO-LC", "7609-EX-CO-LC", "7610-EX-CO-LC", "7614-EX-CO-LC", "7615-EX-CO-LC", "7616-EX-CO-LC"],
-  "oGV expenses": ["7605-EX-CO-LC", "7606-EX-CO-LC", "7607-EX-CO-LC"],
-  "oGT expenses": ["7611-EX-CO-LC", "7612-EX-CO-LC", "7613-EX-CO-LC", "7617-EX-CO-LC", "7618-EX-CO-LC", "7619-EX-CO-LC"],
-};
+// export const PNL_MAPPING = {
+//   "iGV income": ["7001-EX-RV-LC", "7002-EX-RV-LC", "7003-EX-RV-LC", "7004-EX-RV-LC", "7005-EX-RV-LC"],
+//   "iGT income": ["7009-EX-RV-LC", "7010-EX-RV-LC", "7011-EX-RV-LC", "7012-EX-RV-LC", "7016-EX-RV-LC", "7017-EX-RV-LC", "7018-EX-RV-LC", "7019-EX-RV-LC"],
+//   "oGV income": ["7006-EX-RV-LC", "7007-EX-RV-LC", "7008-EX-RV-LC"],
+//   "oGT income": ["7013-EX-RV-LC", "7014-EX-RV-LC", "7015-EX-RV-LC", "7020-EX-RV-LC", "7021-EX-RV-LC", "7022-EX-RV-LC"],
+//   "iGV expenses": ["7601-EX-CO-LC", "7602-EX-CO-LC", "7603-EX-CO-LC", "7604-EX-CO-LC"],
+//   "iGT expenses": ["7608-EX-CO-LC", "7609-EX-CO-LC", "7610-EX-CO-LC", "7614-EX-CO-LC", "7615-EX-CO-LC", "7616-EX-CO-LC"],
+//   "oGV expenses": ["7605-EX-CO-LC", "7606-EX-CO-LC", "7607-EX-CO-LC"],
+//   "oGT expenses": ["7611-EX-CO-LC", "7612-EX-CO-LC", "7613-EX-CO-LC", "7617-EX-CO-LC", "7618-EX-CO-LC", "7619-EX-CO-LC"],
+// };
 
 export interface FnRow {
   entity_id: string;
