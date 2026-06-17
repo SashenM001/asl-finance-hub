@@ -28,8 +28,8 @@ export type BalanceField =
   | "bank_balance"
   | "assets"
   | "receivables"
-  | "petty_cash"   // 8502-CA-AS-LC: isolated for MoCR numerator (not merged into assets)
-  | "reserves"     // 8602-LA-AS-LC: isolated for MoCR numerator (not merged into assets)
+  | "petty_cash" // 8502-CA-AS-LC: isolated for MoCR numerator (not merged into assets)
+  | "reserves" // 8602-LA-AS-LC: isolated for MoCR numerator (not merged into assets)
   | "equity"
   | "liabilities"
   | "cash_inflow"
@@ -203,7 +203,11 @@ const GFB_DICTIONARY: Record<string, MappingDefinition> = {
   "8104-OH-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Overhead Costs: (Planning & LnD)
   "8105-OH-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Overhead Costs: Other Marketing
   "8106-OH-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Overhead Costs: PR & Branding Costs
-  "8108-OH-CO-LC": { category: "cost", functionCode: "National Conference Delegation", balanceField: null }, // LC | Overhead Costs: (National Conf. Travelling)
+  "8108-OH-CO-LC": {
+    category: "cost",
+    functionCode: "National Conference Delegation",
+    balanceField: null,
+  }, // LC | Overhead Costs: (National Conf. Travelling)
   "8109-OH-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Overhead Costs: (International Conf. Travelling + Visa)
   "8201-IN-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Entity Affiliation Fee Costs: iGV Royalty
   "8202-IN-CO-LC": { category: "cost", functionCode: "NMF", balanceField: null }, // LC | Entity Affiliation Fee Costs: oGV Royalty
@@ -277,6 +281,7 @@ export interface ParsedRow {
 /**
  * Parse a single raw sheet row into a structured ParsedRow.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseRow(row: any[]): ParsedRow | null {
   if (!row || row.length < 9) return null;
 
@@ -287,7 +292,7 @@ export function parseRow(row: any[]): ParsedRow | null {
   const gfbCode = String(row[6] || "").trim();
   const description = String(row[7] || "").trim();
 
-  const amountStr = String(row[8] || "0").replace(/[^0-9.\-]/g, "");
+  const amountStr = String(row[8] || "0").replace(/[^0-9.-]/g, "");
   const amount = parseFloat(amountStr) || 0;
 
   if (!lcCode || !date || !gfbCode) return null;

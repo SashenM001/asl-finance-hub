@@ -2,9 +2,25 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Filters, defaultFilters, type FilterState } from "@/components/Filters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchEntities, fetchMetrics, fmtCurrency, fmtPct, type Entity, type MonthlyMetric } from "@/lib/finance";
+import {
+  fetchEntities,
+  fetchMetrics,
+  fmtCurrency,
+  fmtPct,
+  type Entity,
+  type MonthlyMetric,
+} from "@/lib/finance";
 import { useAuth } from "@/lib/auth";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 import { format, parseISO } from "date-fns";
 
 // export const Route = createFileRoute("/_app/performance")({
@@ -18,7 +34,9 @@ function PerformancePage() {
   const [allMetrics, setAllMetrics] = useState<MonthlyMetric[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
 
-  useEffect(() => { fetchEntities().then(setEntities); }, []);
+  useEffect(() => {
+    fetchEntities().then(setEntities);
+  }, []);
 
   useEffect(() => {
     const lock = isLC && !isMC && !isEFB;
@@ -28,7 +46,8 @@ function PerformancePage() {
       fetchMetrics(ids, filters.from, filters.to),
       fetchMetrics(undefined, filters.from, filters.to),
     ]).then(([m, all]) => {
-      const f = (rows: MonthlyMetric[]) => filters.term === "all" ? rows : rows.filter((r) => r.term === filters.term);
+      const f = (rows: MonthlyMetric[]) =>
+        filters.term === "all" ? rows : rows.filter((r) => r.term === filters.term);
       setMetrics(f(m));
       setAllMetrics(f(all));
     });
@@ -64,19 +83,23 @@ function PerformancePage() {
     });
     const all = Array.from(byEntity.values());
     const natAvgRev = all.reduce((s, x) => s + x.revenue, 0) / Math.max(all.length, 1);
-    return Array.from(byEntity.entries()).map(([eid, v]) => ({
-      entity: entities.find((e) => e.id === eid)?.code ?? "—",
-      revenue: v.revenue,
-      nationalAvg: natAvgRev,
-    })).sort((a, b) => b.revenue - a.revenue);
+    return Array.from(byEntity.entries())
+      .map(([eid, v]) => ({
+        entity: entities.find((e) => e.id === eid)?.code ?? "—",
+        revenue: v.revenue,
+        nationalAvg: natAvgRev,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
   }, [allMetrics, entities, isMC, isEFB]);
 
   const cumulative = useMemo(() => {
     let running = 0;
-    return [...metrics].sort((a, b) => a.period_month.localeCompare(b.period_month)).map((m) => {
-      running += m.total_revenue ?? 0;
-      return { label: format(parseISO(m.period_month), "MMM yy"), cumRevenue: running };
-    });
+    return [...metrics]
+      .sort((a, b) => a.period_month.localeCompare(b.period_month))
+      .map((m) => {
+        running += m.total_revenue ?? 0;
+        return { label: format(parseISO(m.period_month), "MMM yy"), cumRevenue: running };
+      });
   }, [metrics]);
 
   return (
@@ -89,7 +112,11 @@ function PerformancePage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle className="text-base">Period vs Period (1st half vs 2nd half of range)</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Period vs Period (1st half vs 2nd half of range)
+            </CardTitle>
+          </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={periodVsPeriod}>
@@ -106,7 +133,9 @@ function PerformancePage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Cumulative revenue (to-date)</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">Cumulative revenue (to-date)</CardTitle>
+          </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={cumulative}>
@@ -144,7 +173,8 @@ function PerformancePage() {
 
       <Card>
         <CardContent className="p-4 text-xs text-muted-foreground">
-          Showing {metrics.length} data points. Avg NPM: {fmtPct(metrics.reduce((s, m) => s + (m.npm ?? 0), 0) / Math.max(metrics.length, 1))}.
+          Showing {metrics.length} data points. Avg NPM:{" "}
+          {fmtPct(metrics.reduce((s, m) => s + (m.npm ?? 0), 0) / Math.max(metrics.length, 1))}.
         </CardContent>
       </Card>
     </div>

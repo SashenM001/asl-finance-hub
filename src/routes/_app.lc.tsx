@@ -3,7 +3,15 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { Filters, defaultFilters, type FilterState } from "@/components/Filters";
 import { KpiCard } from "@/components/KpiCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchMetrics, fmtCurrency, fmtPct, fmtNumber, FUNCTION_CODES, type FunctionCode, type MonthlyMetric } from "@/lib/finance";
+import {
+  fetchMetrics,
+  fmtCurrency,
+  fmtPct,
+  fmtNumber,
+  FUNCTION_CODES,
+  type FunctionCode,
+  type MonthlyMetric,
+} from "@/lib/finance";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -18,7 +26,15 @@ export const Route = createFileRoute("/_app/lc")({
   component: LCDashboard,
 });
 
-const FN_COLORS = ["var(--aiesec-blue)", "var(--aiesec-teal)", "var(--aiesec-orange)", "var(--aiesec-red)", "var(--aiesec-purple)", "var(--aiesec-green)", "var(--aiesec-yellow)"];
+const FN_COLORS = [
+  "var(--aiesec-blue)",
+  "var(--aiesec-teal)",
+  "var(--aiesec-orange)",
+  "var(--aiesec-red)",
+  "var(--aiesec-purple)",
+  "var(--aiesec-green)",
+  "var(--aiesec-yellow)",
+];
 
 const CustomLegend = (props: any) => {
   const { payload } = props;
@@ -26,7 +42,10 @@ const CustomLegend = (props: any) => {
     <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 pt-4">
       {payload?.map((entry: any, index: number) => (
         <div key={`item-${index}`} className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+          <div
+            className="w-2.5 h-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: entry.color }}
+          />
           <span className="text-xs font-medium text-muted-foreground leading-none">
             {entry.value}
           </span>
@@ -36,7 +55,12 @@ const CustomLegend = (props: any) => {
   );
 };
 
-interface FnRow { entity_id: string; period_month: string; function_code: FunctionCode; amount: number }
+interface FnRow {
+  entity_id: string;
+  period_month: string;
+  function_code: FunctionCode;
+  amount: number;
+}
 
 interface DashboardSplitProps {
   config: {
@@ -125,7 +149,11 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
 
   useEffect(() => {
     const lockEntity = isLC && !isMC && !isEFB;
-    const entityId = lockEntity ? profile?.entity_id : filters.entityId !== "all" ? filters.entityId : null;
+    const entityId = lockEntity
+      ? profile?.entity_id
+      : filters.entityId !== "all"
+        ? filters.entityId
+        : null;
 
 
 
@@ -158,20 +186,23 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
   };
 
   const aggregatedMetrics = useMemo(() => {
-    const byMonth = new Map<string, {
-      period_month: string;
-      bank_balance: number;
-      assets: number;
-      liabilities: number;
-      receivables: number;
-      equity: number;
-      inflow: number;
-      outflow: number;
-      total_revenue: number;
-      total_cost: number;
-      petty_cash: number;
-      reserves: number;
-    }>();
+    const byMonth = new Map<
+      string,
+      {
+        period_month: string;
+        bank_balance: number;
+        assets: number;
+        liabilities: number;
+        receivables: number;
+        equity: number;
+        inflow: number;
+        outflow: number;
+        total_revenue: number;
+        total_cost: number;
+        petty_cash: number;
+        reserves: number;
+      }
+    >();
 
     metrics.forEach((m) => {
       const k = m.period_month;
@@ -216,23 +247,49 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
 
   const latest = aggregatedMetrics[aggregatedMetrics.length - 1];
 
-  const cashTrend = useMemo(() => aggregatedMetrics.map((m) => ({
-    label: format(parseISO(m.period_month), "MMM yy"),
-    bank: m.bank_balance ?? 0,
-    inflow: m.inflow ?? 0,
-    outflow: m.outflow ?? 0,
-    net: (m.inflow ?? 0) - (m.outflow ?? 0),
-  })), [aggregatedMetrics]);
+  const cashTrend = useMemo(
+    () =>
+      aggregatedMetrics.map((m) => ({
+        label: format(parseISO(m.period_month), "MMM yy"),
+        bank: m.bank_balance ?? 0,
+        inflow: m.inflow ?? 0,
+        outflow: m.outflow ?? 0,
+        net: (m.inflow ?? 0) - (m.outflow ?? 0),
+      })),
+    [aggregatedMetrics],
+  );
 
-  const revByFn = useMemo(() => aggregateByFn(revenue, filters.functionCode), [revenue, filters.functionCode]);
-  const revByFnPie = useMemo(() => revByFn.filter((r) => r.fn !== "ELD" && r.fn !== "NMF" && r.fn !== "National Conference Delegation"), [revByFn]);
-  const costByFn = useMemo(() => aggregateByFn(costs, filters.functionCode).filter((c) => c.fn !== "ELD"), [costs, filters.functionCode]);
+  const revByFn = useMemo(
+    () => aggregateByFn(revenue, filters.functionCode),
+    [revenue, filters.functionCode],
+  );
+  const revByFnPie = useMemo(
+    () =>
+      revByFn.filter(
+        (r) => r.fn !== "ELD" && r.fn !== "NMF" && r.fn !== "National Conference Delegation",
+      ),
+    [revByFn],
+  );
+  const costByFn = useMemo(
+    () => aggregateByFn(costs, filters.functionCode).filter((c) => c.fn !== "ELD"),
+    [costs, filters.functionCode],
+  );
 
-  const gpmByFn = useMemo(() => FUNCTION_CODES.filter((fn) => fn !== "ELD" && fn !== "NMF" && fn !== "National Conference Delegation").map((fn) => {
-    const r = revenue.filter((x) => x.function_code === fn).reduce((s, x) => s + Number(x.amount), 0);
-    const c = costs.filter((x) => x.function_code === fn).reduce((s, x) => s + Number(x.amount), 0);
-    return { fn, gpm: r > 0 ? ((r - c) / r) * 100 : 0 };
-  }), [revenue, costs]);
+  const gpmByFn = useMemo(
+    () =>
+      FUNCTION_CODES.filter(
+        (fn) => fn !== "ELD" && fn !== "NMF" && fn !== "National Conference Delegation",
+      ).map((fn) => {
+        const r = revenue
+          .filter((x) => x.function_code === fn)
+          .reduce((s, x) => s + Number(x.amount), 0);
+        const c = costs
+          .filter((x) => x.function_code === fn)
+          .reduce((s, x) => s + Number(x.amount), 0);
+        return { fn, gpm: r > 0 ? ((r - c) / r) * 100 : 0 };
+      }),
+    [revenue, costs],
+  );
 
   // Equity change across the filtered period
   const equityChange = useMemo(() => {
@@ -244,7 +301,9 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
 
   // Revenue & Cost distribution %
   const revDistribution = useMemo(() => {
-    const filtered = revByFn.filter((r) => r.fn !== "ELD" && r.fn !== "NMF" && r.fn !== "National Conference Delegation");
+    const filtered = revByFn.filter(
+      (r) => r.fn !== "ELD" && r.fn !== "NMF" && r.fn !== "National Conference Delegation",
+    );
     const total = filtered.reduce((s, r) => s + r.amount, 0);
     return filtered.map((r) => ({ fn: r.fn, pct: total > 0 ? (r.amount / total) * 100 : 0 }));
   }, [revByFn]);
@@ -372,7 +431,14 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
-                  <Line type="monotone" dataKey="bank" stroke="var(--aiesec-blue)" strokeWidth={2.5} dot={false} name="Bank balance" />
+                  <Line
+                    type="monotone"
+                    dataKey="bank"
+                    stroke="var(--aiesec-blue)"
+                    strokeWidth={2.5}
+                    dot={false}
+                    name="Bank balance"
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -407,7 +473,10 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
                     <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                     <Bar dataKey="net" name="Net">
                       {cashTrend.map((d, i) => (
-                        <Cell key={i} fill={d.net >= 0 ? "var(--aiesec-green)" : "var(--aiesec-red)"} />
+                        <Cell
+                          key={i}
+                          fill={d.net >= 0 ? "var(--aiesec-green)" : "var(--aiesec-red)"}
+                        />
                       ))}
                     </Bar>
                   </BarChart>
@@ -458,7 +527,12 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={gpmByFn}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="fn" tick={{ fontSize: 11, angle: -45, textAnchor: "end", dy: 8 }} height={60} interval={0} />
+                    <XAxis
+                      dataKey="fn"
+                      tick={{ fontSize: 11, angle: -45, textAnchor: "end", dy: 8 }}
+                      height={60}
+                      interval={0}
+                    />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(v) => `${Number(v).toFixed(2)}%`} />
 
@@ -475,32 +549,46 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
 
           <div className={isSplit ? "grid grid-cols-1 gap-6 w-full mb-8" : "grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8"}>
             <Card>
-              <CardHeader><CardTitle className="text-base">Revenue Distribution (%)</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Revenue Distribution (%)</CardTitle>
+              </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {revDistribution.map((r) => (
                     <div key={r.fn} className="flex items-center gap-3">
                       <span className="w-24 shrink-0 text-xs font-medium">{r.fn}</span>
                       <div className="flex-1 rounded-full bg-muted h-3 overflow-hidden">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(r.pct, 100)}%` }} />
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${Math.min(r.pct, 100)}%` }}
+                        />
                       </div>
-                      <span className="w-12 text-xs text-right font-medium">{r.pct.toFixed(2)}%</span>
+                      <span className="w-12 text-xs text-right font-medium">
+                        {r.pct.toFixed(2)}%
+                      </span>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Cost Distribution (%)</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Cost Distribution (%)</CardTitle>
+              </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {costDistribution.map((r) => (
                     <div key={r.fn} className="flex items-center gap-3">
                       <span className="w-24 shrink-0 text-xs font-medium">{r.fn}</span>
                       <div className="flex-1 rounded-full bg-muted h-3 overflow-hidden">
-                        <div className="h-full rounded-full bg-aiesec-red" style={{ width: `${Math.min(r.pct, 100)}%` }} />
+                        <div
+                          className="h-full rounded-full bg-aiesec-red"
+                          style={{ width: `${Math.min(r.pct, 100)}%` }}
+                        />
                       </div>
-                      <span className="w-12 text-xs text-right font-medium">{r.pct.toFixed(2)}%</span>
+                      <span className="w-12 text-xs text-right font-medium">
+                        {r.pct.toFixed(2)}%
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -810,6 +898,9 @@ async function loadFn(table: "revenue_streams" | "cost_breakdown", ids: string[]
 function aggregateByFn(rows: FnRow[], fnFilter: FunctionCode | "all") {
   const map = new Map<string, number>();
   rows.forEach((r) => map.set(r.function_code, (map.get(r.function_code) ?? 0) + Number(r.amount)));
-  const out = FUNCTION_CODES.filter((c) => fnFilter === "all" || c === fnFilter).map((fn) => ({ fn, amount: map.get(fn) ?? 0 }));
+  const out = FUNCTION_CODES.filter((c) => fnFilter === "all" || c === fnFilter).map((fn) => ({
+    fn,
+    amount: map.get(fn) ?? 0,
+  }));
   return out;
 }
