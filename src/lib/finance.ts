@@ -117,60 +117,60 @@ export function formatEntityName(name: string) {
   return map[name] || name;
 }
 
-export interface PnLMetrics {
-  igvIncome: number;
-  igtIncome: number;
-  ogvIncome: number;
-  ogtIncome: number;
-  eldIncome: number;
-  igvExpense: number;
-  igtExpense: number;
-  ogvExpense: number;
-  ogtExpense: number;
-  eldExpense: number;
-  grossProfit: number;
-  ewaIncome: number;
-  conferenceIncome: number;
-  pmIncome: number;
-  miscIncome: number;
-  totalIncome: number;
-  ewaExpense: number;
-  conferenceExpense: number;
-  natConferenceExpense: number;
-  nmfExpense: number;
-  pmExpense: number;
-  miscExpense: number;
-  totalExpense: number;
-  netProfit: number;
-}
+// export interface PnLMetrics {
+//   igvIncome: number;
+//   igtIncome: number;
+//   ogvIncome: number;
+//   ogtIncome: number;
+//   eldIncome: number;
+//   igvExpense: number;
+//   igtExpense: number;
+//   ogvExpense: number;
+//   ogtExpense: number;
+//   eldExpense: number;
+//   grossProfit: number;
+//   ewaIncome: number;
+//   conferenceIncome: number;
+//   pmIncome: number;
+//   miscIncome: number;
+//   totalIncome: number;
+//   ewaExpense: number;
+//   conferenceExpense: number;
+//   natConferenceExpense: number;
+//   nmfExpense: number;
+//   pmExpense: number;
+//   miscExpense: number;
+//   totalExpense: number;
+//   netProfit: number;
+// }
 
-export function calculatePnLMetrics(rows: { gfbCode: string; amount: number }[]): PnLMetrics {
-  const metrics: PnLMetrics = {
-    igvIncome: 0,
-    igtIncome: 0,
-    ogvIncome: 0,
-    ogtIncome: 0,
-    eldIncome: 0,
-    igvExpense: 0,
-    igtExpense: 0,
-    ogvExpense: 0,
-    ogtExpense: 0,
-    eldExpense: 0,
-    grossProfit: 0,
-    ewaIncome: 0,
-    conferenceIncome: 0,
-    pmIncome: 0,
-    miscIncome: 0,
-    totalIncome: 0,
-    ewaExpense: 0,
-    conferenceExpense: 0,
-    natConferenceExpense: 0,
-    nmfExpense: 0,
-    pmExpense: 0,
-    miscExpense: 0,
-    totalExpense: 0,
-    netProfit: 0,
-  };
+// export function calculatePnLMetrics(rows: { gfbCode: string; amount: number }[]): PnLMetrics {
+//   const metrics: PnLMetrics = {
+//     igvIncome: 0,
+//     igtIncome: 0,
+//     ogvIncome: 0,
+//     ogtIncome: 0,
+//     eldIncome: 0,
+//     igvExpense: 0,
+//     igtExpense: 0,
+//     ogvExpense: 0,
+//     ogtExpense: 0,
+//     eldExpense: 0,
+//     grossProfit: 0,
+//     ewaIncome: 0,
+//     conferenceIncome: 0,
+//     pmIncome: 0,
+//     miscIncome: 0,
+//     totalIncome: 0,
+//     ewaExpense: 0,
+//     conferenceExpense: 0,
+//     natConferenceExpense: 0,
+//     nmfExpense: 0,
+//     pmExpense: 0,
+//     miscExpense: 0,
+//     totalExpense: 0,
+//     netProfit: 0,
+//   };
 
   rows.forEach(({ gfbCode, amount }) => {
     // Income
