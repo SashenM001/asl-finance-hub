@@ -5,6 +5,11 @@
 // financial-data syncer. The authoritative runtime lives in the Apps Script
 // editor; keep this file in sync with it. See .claude/docs/syncer-architecture.md.
 //
+// NOTE ON LAYOUT: the live project splits this across files — a CONFIG file
+// (MASTER_SPREADSHEET_ID, WEBHOOK_SECRET, CONSOLIDATED_SHEETS) and the sync
+// logic. Apps Script shares one global namespace across all .gs files, so the
+// split is cosmetic. This reference keeps everything in one file for clarity.
+//
 // Triggered by the Supabase Edge Function `trigger-sheet-sync` (which holds the
 // webhook URL + secret). Reads each LC's per-tab PnL/CFS reports from the
 // consolidated workbooks and rebuilds the MASTER_COMBINED_TALL tab (full
@@ -28,6 +33,10 @@
 // The central "database" spreadsheet that receives the MASTER_COMBINED_TALL tab.
 const MASTER_SPREADSHEET_ID = "11veq_V1Eh4ZZ7PxDKnrc0GAJrXP2HGHbenAIXcFDgw8";
 
+// Read once at global scope. Returns null if the Script Property is unset —
+// doPost fails closed in that case (see the guard below).
+const WEBHOOK_SECRET = PropertiesService.getScriptProperties().getProperty("WEBHOOK_SECRET");
+
 // One entry per consolidated workbook per term. Append a new row each term.
 const CONSOLIDATED_SHEETS = [
   { spreadsheetId: "1hE-DFofqrkhgwbxkP7EaXc2hQ2VXkZ3GaUXgYCrSvYA", term: "24-25" },
@@ -39,8 +48,10 @@ function doPost(e) {
   try {
     var params = JSON.parse(e.postData.contents);
 
-    var expectedSecret = PropertiesService.getScriptProperties().getProperty("WEBHOOK_SECRET");
-    if (!expectedSecret || params.secret !== expectedSecret) {
+    // Fail closed: reject if the secret is unset OR does not match. Without the
+    // `!WEBHOOK_SECRET` check, an unset property (null) + `{"secret": null}`
+    // would pass `null !== null` → false → authorized.
+    if (!WEBHOOK_SECRET || params.secret !== WEBHOOK_SECRET) {
       return ContentService.createTextOutput(
         JSON.stringify({ ok: false, error: "Unauthorized" })
       ).setMimeType(ContentService.MimeType.JSON);
@@ -163,6 +174,9 @@ function _parseDateHeaderCombTall(rawHeader) {
 }
 
 // ─── Extract tall rows from one source sheet ──────────────────────────────────
+// filterMonth MUST be passed in (it is a local of syncCombinedTallMasterSheet,
+// not a global). Omitting it makes the `if (filterMonth ...)` line below throw
+// ReferenceError, which the per-tab catch swallows → silent "No data found".
 function _extractTallRows(sheet, lc, term, reportType, filterMonth) {
   var data    = sheet.getDataRange().getValues();
   var results = [];
@@ -240,4 +254,3 @@ function _writeTallSheet(dataRows, tabName) {
 
   Logger.log("  ✓ " + dataRows.length + " rows → " + tabName);
 }
-</content>
