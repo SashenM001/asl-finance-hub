@@ -111,7 +111,9 @@ External financial data flows in from Google Sheets. The Admin page sync (driven
 1. **Trigger** — POST to the `trigger-sheet-sync` Edge Function, which (after verifying the JWT + `mc_user` role) calls an external AppScript webhook that consolidates the origin sheets into the `MASTER_COMBINED_TALL` master tab. Webhook URL + secret live as server-side Supabase secrets and never reach the browser.
 2. **Pull** — the browser then runs `syncSheetData()` (`src/integrations/googleSheets/sync.ts`), which reads `MASTER_COMBINED_TALL` via the Sheets API, aggregates per `(entity, month)`, and upserts into `monthly_metrics`/`revenue_streams`/`cost_breakdown`.
 
-Supporting files: `client.ts` (Sheets API fetch), `mapper.ts` (`parseRow` → classify GFB codes / extract function code / normalize), `index.ts` (public exports). The Sheets read in step 2 still happens client-side with `VITE_GOOGLE_SHEETS_API_KEY` (exposed in the bundle — a known limitation).
+Supporting files: `client.ts` (Sheets API fetch), `mapper.ts` (`parseRow` → exact `GFB_DICTIONARY` lookup → classify GFB codes / function code / normalize), `index.ts` (public exports). The Sheets read in step 2 still happens client-side with `VITE_GOOGLE_SHEETS_API_KEY` (exposed in the bundle — a known limitation). The AppScript that builds the master tab is mirrored at `appscript/master-combined-tall-sync.gs`.
+
+> 📖 **Full reference:** [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md) is the canonical, code-verified description of the whole pipeline (AppScript → Edge Function → client pull → Supabase), the secret/key trust model, known deviations (currently the Edge Function + AppScript hold their secrets **hardcoded** rather than in env vars — pending revert), and a guide for adding a new **independent** syncer (e.g. the planned Audits sync). Read it before touching sync code.
 
 > The root-level `update_mapper.js` / `update_mapper.py` are disposable one-off scripts that rewrote `mapper.ts` during a past migration. They are **not** part of the app or build — ignore them for normal work.
 
@@ -124,5 +126,6 @@ Full DDL, RLS policies, enums, and triggers are in the single migration under `s
 ### Documentation files
 
 - **`README.md`** — accurate project overview, setup, and architecture summary.
-- **`PROJECT_CONTEXT.md`** and **`SYSTEM_REPORT.md`** — detailed references for schema, RBAC, the sync pipeline, and feature status, but dated 24 April 2026 and predate the Edge Function / AppScript sync rework, so some "client-side sync" and function-code notes are stale. Trust the code over these where they conflict.
-- **`GOOGLE_SHEETS_SETUP.md`** documents the Sheets API key setup.
+- **[`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md)** — canonical, code-verified reference for the Google Sheets → Supabase sync pipeline. Trust this over the older docs for anything sync-related.
+- **`PROJECT_CONTEXT.md`** and **`SYSTEM_REPORT.md`** — detailed references for schema, RBAC, the sync pipeline, and feature status. Originally dated 24 April 2026; their **sync, function-code, and architecture sections were reconciled on 2026-06-17** to match the current Edge Function / AppScript flow. Other sections may still lag — trust the code (and the syncer doc) where they conflict.
+- **`GOOGLE_SHEETS_SETUP.md`** documents the Sheets API key setup (the `VITE_GOOGLE_SHEETS_API_KEY` used for the step-2 read).
