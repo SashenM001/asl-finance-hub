@@ -1,22 +1,24 @@
 # ASL Finance Hub
 
-A financial management dashboard for **AIESEC Sri Lanka**. It tracks KPIs, budgets, audit scores, and monthly reviews across the national entity and its Local Committees (LCs), with role-based access for LC, MC, and EFB users.
+A financial management dashboard for **AIESEC Sri Lanka**. It tracks national and Local Committee (LC) KPIs and EFB audit scores across the 11 LCs, with role-based access for LC, MC, and EFB users.
 
-**Live demo:** https://asl-finance-hub.vercel.app
+> The current live pages are **Overview**, **LC Dashboard**, **EFB Audit**, **Help & Contacts**, and the MC-only **Admin** page. Budget vs. Actual, Performance, and Monthly Review pages exist in the codebase but are currently disabled (their route files are prefixed with `-` and their nav links are commented out), so the data layer still carries their tables. But the data does not exist in the sources provided by the EFB so far.
+
+**Live demo:** https://asl-finance-hub.vercel.app (to be updated)
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | React 19 + TypeScript on **TanStack Start** (SSR + file-based routing via TanStack Router) |
-| Build | Vite 7 (configured through `@lovable.dev/vite-tanstack-config`) |
-| Database & Auth | Supabase (PostgreSQL with Row-Level Security, Auth, Edge Functions) |
-| UI | Radix UI + shadcn/ui, TailwindCSS v4 |
-| Charts | Recharts |
-| Data sync | Google Sheets API v4 + Google AppScript webhook |
-| Deployment | Cloudflare Workers (SSR) and Vercel (static SPA) |
+| Layer           | Technology                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| Framework       | React 19 + TypeScript on **TanStack Start** (SSR + file-based routing via TanStack Router) |
+| Build           | Vite 7 (configured through `@lovable.dev/vite-tanstack-config`)                            |
+| Database & Auth | Supabase (PostgreSQL with Row-Level Security, Auth, Edge Functions)                        |
+| UI              | Radix UI + shadcn/ui, TailwindCSS v4                                                       |
+| Charts          | Recharts                                                                                   |
+| Data sync       | Google Sheets API v4 + Google AppScript webhook                                            |
+| Deployment      | Cloudflare Workers (SSR) and Vercel (static SPA)                                           |
 
 ---
 
@@ -60,6 +62,7 @@ npm run build:dev    # Development-mode build
 npm run preview      # Preview the production build
 npm run lint         # ESLint
 npm run format       # Prettier (write)
+npm run deploy:fn    # Deploy the trigger-sheet-sync Supabase Edge Function
 ```
 
 There is no test suite configured.
@@ -82,20 +85,37 @@ Pages query Supabase directly, filtered by role; RLS enforces isolation at the D
 
 ### Role-Based Access Control
 
-| Role | Access |
-|------|--------|
-| `lc_user` | Own entity only; mostly read-only |
-| `mc_user` | All entities; manages users/roles; full write |
+| Role       | Access                                                        |
+| ---------- | ------------------------------------------------------------- |
+| `lc_user`  | Own entity only; mostly read-only                             |
+| `mc_user`  | All entities; manages users/roles; full write                 |
 | `efb_user` | All entities; read-only except audit scores & monthly reviews |
 
 RLS is enforced in PostgreSQL via `SECURITY DEFINER` helper functions (`has_role`, `get_user_entity`, `can_read_entity`). On signup, a trigger auto-creates a profile and assigns the **first user** the `mc_user` role to bootstrap the system.
 
 ### Google Sheets Sync
 
-The Admin page sync runs in two steps:
+There are **two independent syncers**, both triggered from the MC-only Admin page: a **financial** sync and an **audit** sync. They share the same trust/transport plumbing but pull from different data sources into different tables.
 
-1. An Edge Function (`supabase/functions/trigger-sheet-sync`) verifies the caller's JWT + `mc_user` role, then calls a Google AppScript webhook that consolidates source sheets into a `MASTER_COMBINED_TALL` master tab. The webhook URL and secret are stored as Supabase secrets.
-2. The browser then reads the master tab and upserts aggregated data into `monthly_metrics`, `revenue_streams`, and `cost_breakdown`.
+**What they share (one pipeline):**
+
+- A single Edge Function, `supabase/functions/trigger-sheet-sync`, fronts both. It verifies the caller's JWT + `mc_user` role, then forwards the request to one Google AppScript webhook (URL + secret stored as Supabase secrets, never exposed to the browser).
+- The request body carries a `sync` discriminator — `"financial"` (default) or `"audit"` — which routes `doPost` in the AppScript to build the correct master tab.
+- Both follow the same **two-step** shape: (1) trigger the AppScript build via the Edge Function, then (2) have the browser read the resulting master tab and write to Supabase.
+
+**Where they diverge (two data sources):**
+
+|               | Financial sync                                                  | Audit sync                                                                                |
+| ------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Hook          | `useSheetSync` (`src/hooks/useSheetSync.ts`)                    | `useAuditSync` (`src/hooks/useAuditSync.ts`)                                              |
+| Source data   | Origin finance sheets                                           | "LEY Consolidation" tab of the EFB Audit Performance Dashboard                            |
+| Master tab    | `MASTER_COMBINED_TALL`                                          | `MASTER_AUDIT_TALL`                                                                       |
+| AppScript     | `appscript/master-combined-tall-sync.gs`                        | `appscript/master-audit-tall-sync.gs`                                                     |
+| Client pull   | `syncSheetData()` (`src/integrations/googleSheets/sync.ts`)     | `syncAuditData()` (`src/integrations/googleSheets/auditSync.ts`)                          |
+| Target tables | `monthly_metrics`, `revenue_streams`, `cost_breakdown` (upsert) | `audit_scores` (delete-then-insert per entity/period — no unique constraint to upsert on) |
+| Coverage      | All 11 LCs                                                      | 10 LCs (no Jaffna)                                                                        |
+
+The financial sync also supports a `mode` (`all` / `term` / `current`) to scope which periods get rebuilt; the audit sync rebuilds the full audit set.
 
 See [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) for API key setup.
 
