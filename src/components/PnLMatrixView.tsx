@@ -288,9 +288,24 @@ export function PnLMatrixView({ configs, onAddConfig, onRemoveConfig, onEditConf
     
     const fileName = `PnL Report_ ${entityNames.join("+")}.csv`;
 
+    const formatMonthYear = (dateStr?: string) => {
+      if (!dateStr) return "";
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return "";
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yy = String(d.getFullYear()).slice(-2);
+        return `${mm}/${yy}`;
+      } catch {
+        return "";
+      }
+    };
+
     const headers = ["Metric", ...configs.map((c, i) => {
-      const dateRange = c.term || "All Dates";
-      return `"${entityNames[i]} (${dateRange})"`;
+      const fromStr = formatMonthYear(c.from);
+      const toStr = formatMonthYear(c.to);
+      const dateRange = (fromStr && toStr) ? `${fromStr}-${toStr}` : (c.term || "All Dates");
+      return `"${entityNames[i]}(${dateRange})"`;
     })];
     
     const rows = ROW_LABELS.map(row => {
