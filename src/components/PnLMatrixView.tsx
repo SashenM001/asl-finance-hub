@@ -275,14 +275,22 @@ export function PnLMatrixView({ configs, onAddConfig, onRemoveConfig, onEditConf
   };
 
   const handleExportCSV = useCallback(() => {
-    const headers = ["Metric", ...configs.map(c => {
+    const entityNames = configs.map(c => {
       let effectiveEntityId = c.entity;
       if (lockEntity) {
         effectiveEntityId = profile?.entity_id;
       }
-      const ent = effectiveEntityId && effectiveEntityId !== "Select LC" && effectiveEntityId !== "all" ? (entities.find(e => e.id === effectiveEntityId)?.name || effectiveEntityId) : "All Entities";
+      const rawName = effectiveEntityId && effectiveEntityId !== "Select LC" && effectiveEntityId !== "all" 
+        ? (entities.find(e => e.id === effectiveEntityId)?.name || "Unknown LC") 
+        : "All Entities";
+      return formatEntityName(rawName);
+    });
+    
+    const fileName = `PnL Report_ ${entityNames.join("+")}.csv`;
+
+    const headers = ["Metric", ...configs.map((c, i) => {
       const dateRange = c.term || "All Dates";
-      return `"${ent} (${dateRange})"`;
+      return `"${entityNames[i]} (${dateRange})"`;
     })];
     
     const rows = ROW_LABELS.map(row => {
@@ -294,11 +302,11 @@ export function PnLMatrixView({ configs, onAddConfig, onRemoveConfig, onEditConf
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "pnl_matrix.csv");
+    link.setAttribute("download", fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [configs, entities, calculatedData]);
+  }, [configs, entities, calculatedData, lockEntity, profile]);
 
   useEffect(() => {
     const handler = () => handleExportCSV();

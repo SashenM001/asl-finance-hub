@@ -781,7 +781,7 @@ function LCDashboard() {
               onClick={() => window.dispatchEvent(new CustomEvent('export-pnl-csv'))}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium shadow-sm border border-transparent"
             >
-              <Download className="w-4 h-4" /> Download CSV
+              <Download className="w-4 h-4" /> Export CSV
             </button>
           )}
 
