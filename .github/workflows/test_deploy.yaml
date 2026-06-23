@@ -1,0 +1,68 @@
+name: Deploy_Using_Docker_Hub_Test
+
+on:
+  push:
+    branches: ["test"]
+  workflow_dispatch:
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compose Vite build env
+        run: |
+          {
+            echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}"
+            echo "VITE_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}"
+            echo "VITE_SUPABASE_PROJECT_ID=${{ secrets.VITE_SUPABASE_PROJECT_ID }}"
+            echo "VITE_GOOGLE_SHEETS_API_KEY=${{ secrets.VITE_GOOGLE_SHEETS_API_KEY }}"
+          } > "${RUNNER_TEMP}/vite.env"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/asldevteam:finance-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          secret-files: |
+            vite_env=${{ runner.temp }}/vite.env
+
+  deploy:
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AZURE_SSH }}
+
+      - name: Add SSH known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.AZURE_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Azure VM
+        run: |
+          ssh ${{ secrets.AZURE_USER }}@${{ secrets.AZURE_HOST }} << 'EOF'
+            cd ${{ secrets.SCRIPTS_PATH }}
+            export APP=${{ secrets.DOCKERHUB_USERNAME }}/asldevteam
+            export HOSTPORT=8001
+            export TEMP_PORT=7081
+            export CONTAINERPORT=80
+            export TAG=finance-test
+            ./deploy-finance.sh || exit 1
+          EOF

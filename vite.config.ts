@@ -6,4 +6,12 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-export default defineConfig();
+// VM deployment: build as a static SPA (prerendered index.html in dist/client) served by nginx.
+// Cloudflare plugin is disabled to avoid producing a worker; tanstackStart.spa.enabled emits the
+// SPA shell.
+export default defineConfig({
+  cloudflare: false,
+  tanstackStart: {
+    spa: { enabled: true },
+  },
+});
