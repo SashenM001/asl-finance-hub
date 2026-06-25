@@ -226,7 +226,7 @@ erDiagram
 
 | Table | Records | Purpose |
 |-------|---------|---------|
-| `entities` | 12 | All LCs (CC, CN, CS, Kandy, Jaffna, USJ, NSBM, Ruhuna, Rajarata, SLIIT, NIBM, Wayamba) |
+| `entities` | 11 | All LCs (CC, CN, CS, Kandy, USJ, NSBM, Ruhuna, Rajarata, SLIIT, NIBM, Wayamba) |
 | `profiles` | 1+ | User profiles linked to auth.users |
 | `user_roles` | 1+ | RBAC role assignments (lc_user, mc_user, efb_user) |
 | `monthly_metrics` | ~245 | Aggregated monthly financial KPIs per entity |
@@ -307,7 +307,8 @@ flowchart LR
     U["Admin UI<br/>useSheetSync"] -->|① POST mode/term/month + JWT| EF["Edge Function<br/>trigger-sheet-sync<br/>JWT + mc_user gate"]
     EF -->|② forward + secret| AS["AppScript doPost<br/>rebuild master tab"]
     AS --> GS["Google Sheet<br/>MASTER_COMBINED_TALL"]
-    GS -->|③ Sheets API v4<br/>API key read| B["client.ts<br/>fetchSheetData()"]
+    GS -->|③ SA OAuth read| PF["Edge Function<br/>pull-sheet-data<br/>Service Account auth"]
+    PF -->|④ {ok,values}| B["client.ts<br/>fetchSheetData()"]
     B --> C["mapper.ts<br/>parseRow() → GFB_DICTIONARY<br/>LC_CODE_TO_NAME"]
     C --> D["sync.ts<br/>group by (entity, month)<br/>aggregate, derive NPM/liquidity"]
     D -->|④ upsert via PostgREST| E["Supabase DB<br/>monthly_metrics<br/>revenue_streams<br/>cost_breakdown"]
@@ -533,7 +534,7 @@ full `GFB_DICTIONARY`.
 | 3 | `budget_actual`, `audit_scores`, `monthly_review` tables are empty | Budget, Audit, and Review pages show "No data" |
 | 4 | Rankings, Health Index, OD Score are always 0 | Home page shows #0 for rankings — needs manual data or AI formula |
 | 5 | No mobile hamburger menu | Sidebar hidden on mobile, no way to navigate |
-| 6 | Google Sheets sync is partly client-side | The **trigger** is now server-gated via the `trigger-sheet-sync` Edge Function (JWT + `mc_user`), but the **step-2 read** of the master tab still runs in the browser with `VITE_GOOGLE_SHEETS_API_KEY` (exposed in the bundle). Also: the Edge Function + AppScript currently hold their secrets **hardcoded** rather than in env vars — see syncer-architecture doc §2.2/§4. |
+| 6 | ~~Google Sheets sync is partly client-side~~ ✅ **Resolved** | Both steps are now server-gated: step 1 via `trigger-sheet-sync` (JWT + `mc_user`), step 2 via `pull-sheet-data` (JWT + Service Account — master sheet is private). `VITE_GOOGLE_SHEETS_API_KEY` is no longer on the active sync path. |
 
 ### Low
 
@@ -562,7 +563,7 @@ full `GFB_DICTIONARY`.
 
 | Task | Effort | Risk Addressed |
 |------|--------|---------------|
-| **Finish moving sync server-side** | 1-2 days | ⏳ Partially done — the trigger now runs through the `trigger-sheet-sync` Edge Function. Remaining: (a) revert the Edge Function + AppScript to read secrets from env / Script Properties instead of hardcoded values and rotate them; (b) optionally move the step-2 master-tab read into the Edge Function so `VITE_GOOGLE_SHEETS_API_KEY` leaves the bundle; (c) optionally schedule via cron |
+| **Finish moving sync server-side** | ✅ Done | Both steps are now server-gated. Step 1: `trigger-sheet-sync` Edge Function (JWT + `mc_user`). Step 2: `pull-sheet-data` Edge Function (JWT + Service Account SA key). Master sheet is private. Remaining optional item: schedule via cron. |
 | **Rate limiting on auth** | 1 day | Prevent brute-force attacks on login. Configure Supabase Auth rate limits |
 | **Fix admin `beforeLoad`** | 0.5 day | Replace with component-level guard like `_app.tsx` |
 | **Audit logging** | 2 days | Log all role changes, entity assignments, and data modifications with timestamps and actor |
@@ -635,7 +636,7 @@ full `GFB_DICTIONARY`.
 
 | Concern | Current State | Recommendation |
 |---------|--------------|----------------|
-| Google Sheets API key in bundle | ⚠️ **Exposed** in `VITE_GOOGLE_SHEETS_API_KEY` | Move to Edge Function |
+| Google Sheets API key in bundle | ✅ **No longer on active sync path** — `VITE_GOOGLE_SHEETS_API_KEY` remains in `client.ts` for `fetchSheetDataMultiple`/`getSheetMetadata` but neither is called by the financial or audit sync. Master-sheet read now goes through `pull-sheet-data` Edge Function with Service Account. | Remove the env var if `fetchSheetDataMultiple` / `getSheetMetadata` are confirmed unused. |
 | Service Role key | ✅ Not in client bundle (no `VITE_` prefix) | Keep it this way |
 | Supabase publishable key | ✅ Safe to expose (designed for client use) | OK |
 | Local storage session tokens | ✅ Standard Supabase behavior | OK |

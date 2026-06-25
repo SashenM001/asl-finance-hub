@@ -12,7 +12,6 @@ export const LC_CODE_TO_NAME: Record<string, string> = {
   CN: "Colombo North",
   CS: "Colombo South",
   Kandy: "Kandy",
-  Jaffna: "Jaffna",
   USJ: "USJ",
   NSBM: "NSBM",
   Ruhuna: "Ruhuna",

@@ -30,7 +30,7 @@ End-to-end Finance Intelligence dashboard for AIESEC SL with backend (Lovable Cl
 
 #### **entities** (11 Local Committees)
 ```
-Colombo Central, Colombo North, Colombo South, Kandy, Jaffna, USJ, NSBM, Ruhuna, Rajarata, SLIIT, NIBM
+Colombo Central, Colombo North, Colombo South, Kandy, USJ, NSBM, Ruhuna, Rajarata, SLIIT, NIBM, Wayamba
 ```
 
 #### **profiles**

@@ -34,7 +34,7 @@ const AUDIT_RANGE = "MASTER_AUDIT_TALL!A1:H10000";
  * CS, NSBM, SLIIT, NIBM, USJ), others are entity *names* (Kandy, Rajarata,
  * Ruhuna) whose codes differ (KDY, RAJ, RUH). This map normalizes every audit
  * label to the entity `code` so resolution is unambiguous. The audit dashboard
- * covers 10 LCs (no Jaffna).
+ * covers 10 LCs.
  */
 const AUDIT_LC_TO_CODE: Record<string, string> = {
   CC: "CC", // Colombo Central

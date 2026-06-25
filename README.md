@@ -4,7 +4,7 @@ A financial management dashboard for **AIESEC Sri Lanka**. It tracks national an
 
 > The current live pages are **Overview**, **LC Dashboard**, **EFB Audit**, **Help & Contacts**, and the MC-only **Admin** page. Budget vs. Actual, Performance, and Monthly Review pages exist in the codebase but are currently disabled (their route files are prefixed with `-` and their nav links are commented out), so the data layer still carries their tables. But the data does not exist in the sources provided by the EFB so far.
 
-**Live demo:** https://asl-finance-hub.vercel.app (to be updated)
+**Deployment:** runs as a Docker container behind Nginx on an Azure VM, deployed by GitHub Actions on push to `main`.
 
 ---
 
@@ -13,12 +13,12 @@ A financial management dashboard for **AIESEC Sri Lanka**. It tracks national an
 | Layer           | Technology                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------ |
 | Framework       | React 19 + TypeScript on **TanStack Start** (SSR + file-based routing via TanStack Router) |
-| Build           | Vite 7 (configured through `@lovable.dev/vite-tanstack-config`)                            |
+| Build           | Vite 7 (configured through `@lovable.dev/vite-tanstack-config`), built as a static SPA    |
 | Database & Auth | Supabase (PostgreSQL with Row-Level Security, Auth, Edge Functions)                        |
 | UI              | Radix UI + shadcn/ui, TailwindCSS v4                                                       |
 | Charts          | Recharts                                                                                   |
-| Data sync       | Google Sheets API v4 + Google AppScript webhook                                            |
-| Deployment      | Cloudflare Workers (SSR) and Vercel (static SPA)                                           |
+| Data sync       | Google Sheets (read via a Service Account through a Supabase Edge Function) + AppScript webhook |
+| Deployment      | Docker + Nginx on an Azure VM, via GitHub Actions                                          |
 
 ---
 
@@ -28,7 +28,7 @@ A financial management dashboard for **AIESEC Sri Lanka**. It tracks national an
 
 - Node.js 18+ and npm
 - A Supabase project (URL + publishable key)
-- A Google Sheets API key (for the data sync feature)
+- A Google Cloud Service Account with read access to the master spreadsheet (for the data sync feature — see [Supabase Edge Function secrets](#supabase-edge-function-secrets) below)
 
 ### Setup
 
@@ -43,26 +43,37 @@ Create a `.env` file in the project root:
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 
-# Google Sheets sync (note: exposed in the client bundle)
-VITE_GOOGLE_SHEETS_API_KEY=your-google-sheets-api-key
-
-# Server-only (used by SSR / server functions — NEVER prefix with VITE_)
+# Server-only (used by server functions — NEVER prefix with VITE_)
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 > `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS and must never be exposed to the client. Keep it un-prefixed so Vite does not bundle it.
+>
+> The Google Sheets sync no longer uses a browser-side API key — the master sheet is private and is read server-side via a Service Account. See [Supabase Edge Function secrets](#supabase-edge-function-secrets). (`VITE_GOOGLE_SHEETS_API_KEY` is only still referenced by the unused `fetchSheetDataMultiple` / `getSheetMetadata` helpers and is not needed for the active sync.)
+
+### Supabase Edge Function secrets
+
+The sync runs through two Supabase Edge Functions, which read these secrets server-side (set them in **Supabase Dashboard → Edge Functions → Secrets**, or via `npx supabase secrets set`). They never reach the browser:
+
+| Secret              | Used by              | Purpose                                                                                     |
+| ------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
+| `GOOGLE_SA_KEY`     | `pull-sheet-data`    | Full Google Service Account JSON. Signs a JWT to read the private master sheet via OAuth.    |
+| `APPSCRIPT_WEBHOOK_URL` | `trigger-sheet-sync` | URL of the AppScript webhook that rebuilds the master tab.                                  |
+| `APPSCRIPT_WEBHOOK_SECRET` | `trigger-sheet-sync` | Shared secret the AppScript checks before running.                                      |
+
+> **Service Account setup:** Create a Service Account in Google Cloud, download its JSON key, and **share the master spreadsheet with the SA's `client_email` as Viewer**. Paste the entire JSON as the `GOOGLE_SA_KEY` secret. The SA key must never be committed to git or placed in a `VITE_`-prefixed variable. To hand the project to a new owner, they create their own SA in their GCP project, share the sheet with the new `client_email`, and replace `GOOGLE_SA_KEY` — the GCP project and the AppScript project are independent.
 
 ### Commands
 
 ```bash
 npm run dev          # Start dev server at http://localhost:8080
-npm run build        # Production build (emits dist/client + dist/server)
+npm run build        # Production build (static SPA — emits dist/client with _shell.html)
 npm run build:dev    # Development-mode build
 npm run preview      # Preview the production build
 npm run lint         # ESLint
 npm run format       # Prettier (write)
-npm run deploy:fn    # Deploy the trigger-sheet-sync Supabase Edge Function
+npm run deploy:fn    # Deploy the Supabase Edge Functions (trigger-sheet-sync, pull-sheet-data)
 ```
 
 There is no test suite configured.
@@ -101,7 +112,7 @@ There are **two independent syncers**, both triggered from the MC-only Admin pag
 
 - A single Edge Function, `supabase/functions/trigger-sheet-sync`, fronts both. It verifies the caller's JWT + `mc_user` role, then forwards the request to one Google AppScript webhook (URL + secret stored as Supabase secrets, never exposed to the browser).
 - The request body carries a `sync` discriminator — `"financial"` (default) or `"audit"` — which routes `doPost` in the AppScript to build the correct master tab.
-- Both follow the same **two-step** shape: (1) trigger the AppScript build via the Edge Function, then (2) have the browser read the resulting master tab and write to Supabase.
+- Both follow the same **two-step** shape: (1) trigger the AppScript build via the `trigger-sheet-sync` Edge Function, then (2) read the resulting master tab through the `pull-sheet-data` Edge Function — which authenticates to Google as a Service Account, so the master sheet stays private — and write the rows to Supabase from the browser.
 
 **Where they diverge (two data sources):**
 
@@ -113,11 +124,11 @@ There are **two independent syncers**, both triggered from the MC-only Admin pag
 | AppScript     | `appscript/master-combined-tall-sync.gs`                        | `appscript/master-audit-tall-sync.gs`                                                     |
 | Client pull   | `syncSheetData()` (`src/integrations/googleSheets/sync.ts`)     | `syncAuditData()` (`src/integrations/googleSheets/auditSync.ts`)                          |
 | Target tables | `monthly_metrics`, `revenue_streams`, `cost_breakdown` (upsert) | `audit_scores` (delete-then-insert per entity/period — no unique constraint to upsert on) |
-| Coverage      | All 11 LCs                                                      | 10 LCs (no Jaffna)                                                                        |
+| Coverage      | All 11 LCs                                                      | 10 LCs                                                                                    |
 
 The financial sync also supports a `mode` (`all` / `term` / `current`) to scope which periods get rebuilt; the audit sync rebuilds the full audit set.
 
-See [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) for API key setup.
+See [Supabase Edge Function secrets](#supabase-edge-function-secrets) for the Service Account and webhook secrets the sync needs. [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) documents the legacy API-key setup, which is no longer on the active sync path.
 
 ---
 

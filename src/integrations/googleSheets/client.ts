@@ -3,36 +3,48 @@
  *
  * Fetches data from the AIESEC SL finance Google Sheet.
  * Uses the MASTER_COMBINED_TALL tab (tall/tidy format).
+ *
+ * Reads are routed through the `pull-sheet-data` Supabase Edge Function,
+ * which authenticates via a Service Account — the master sheet stays private.
  */
+
+import { supabase } from "@/integrations/supabase/client";
 
 const SHEET_ID = "11veq_V1Eh4ZZ7PxDKnrc0GAJrXP2HGHbenAIXcFDgw8";
 const DEFAULT_RANGE = "MASTER_COMBINED_TALL!A1:I10000";
 
 /**
- * Fetch raw data from Google Sheet by range
+ * Fetch raw data from Google Sheet via the pull-sheet-data Edge Function.
+ * The spreadsheetId and range params are kept for API compatibility but
+ * the Edge Function currently serves MASTER_COMBINED_TALL only.
  */
 export async function fetchSheetData(
-  spreadsheetId: string = SHEET_ID,
-  range: string = DEFAULT_RANGE,
+  _spreadsheetId: string = SHEET_ID,
+  _range: string = DEFAULT_RANGE,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[][]> {
-  const apiKey = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "VITE_GOOGLE_SHEETS_API_KEY not found in .env. Please add your Google Sheets API key.",
-    );
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated — cannot fetch sheet data");
+
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pull-sheet-data`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Sheet pull failed with HTTP ${res.status}`);
   }
 
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Google Sheets API error (${response.status}): ${body}`);
+  const data = await res.json();
+  if (!data.ok) {
+    throw new Error(`Google Sheets API error (403): ${data.error ?? "unknown"}`);
   }
 
-  const data = await response.json();
-  return data.values || [];
+  return data.values ?? [];
 }
 
 /**
