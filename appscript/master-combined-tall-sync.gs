@@ -1,56 +1,21 @@
 // ============================================================
-// MASTER_COMBINED_TALL SYNC — AppScript web app
-// ============================================================
-// Version-controlled reference copy of the Google Apps Script that backs the
-// financial-data syncer. The authoritative runtime lives in the Apps Script
-// editor; keep this file in sync with it. See .claude/docs/syncer-architecture.md.
+// COMBINED TALL SYNC — run syncCombinedTallMasterSheet()
+// Produces: MASTER_COMBINED_TALL
 //
-// NOTE ON LAYOUT: the live project splits this across files — a CONFIG file
-// (MASTER_SPREADSHEET_ID, WEBHOOK_SECRET, CONSOLIDATED_SHEETS) and the sync
-// logic. Apps Script shares one global namespace across all .gs files, so the
-// split is cosmetic. This reference keeps everything in one file for clarity.
+// All CFS and PnL rows in a single table.
+// Report_Type column ("CFS" or "PnL") lets you filter/segment
+// in Looker Studio without needing data blending.
 //
-// Triggered by the Supabase Edge Function `trigger-sheet-sync` (which holds the
-// webhook URL + secret). Reads each LC's per-tab PnL/CFS reports from the
-// consolidated workbooks and rebuilds the MASTER_COMBINED_TALL tab (full
-// overwrite) in tall/tidy format. The browser then pulls that tab into Supabase.
-//
-// ── SECRET HANDLING ─────────────────────────────────────────────────────────
-// WEBHOOK_SECRET is read from Script Properties — NOT hardcoded — so no live
-// secret is committed to git. Set it once in the Apps Script editor:
-//   Project Settings → Script Properties → add `WEBHOOK_SECRET`.
-// (The deployed copy historically hardcoded this value; that is a known
-//  deviation tracked in the syncer-architecture doc.)
-//
-// Output columns (the contract the client ingest depends on):
-//   LC | LC_Term | Year | Month | Date | Report_Type | GFB_Code | Description | Amount
-//     Year  → integer (e.g. 2025)
-//     Month → 3-letter abbreviation (e.g. "Feb")
-//     Date  → "YYYY-MM-01"  ← used as period_month
+// Columns: LC | LC_Term | Year | Month | Date | Report_Type | GFB_Code | Description | Amount
+//   Year  → integer (e.g. 2025)
+//   Month → 3-letter abbreviation (e.g. "Feb")
+//   Date  → "YYYY-MM-01"  ← Looker Studio Date dimension
 // ============================================================
 
-// ─── Config ─────────────────────────────────────────────────────────────────
-// The central "database" spreadsheet that receives the MASTER_COMBINED_TALL tab.
-const MASTER_SPREADSHEET_ID = "11veq_V1Eh4ZZ7PxDKnrc0GAJrXP2HGHbenAIXcFDgw8";
 
-// Read once at global scope. Returns null if the Script Property is unset —
-// doPost fails closed in that case (see the guard below).
-const WEBHOOK_SECRET = PropertiesService.getScriptProperties().getProperty("WEBHOOK_SECRET");
-
-// One entry per consolidated workbook per term. Append a new row each term.
-const CONSOLIDATED_SHEETS = [
-  { spreadsheetId: "1hE-DFofqrkhgwbxkP7EaXc2hQ2VXkZ3GaUXgYCrSvYA", term: "24-25" },
-  { spreadsheetId: "1dI28PE4Vyyae0cfkGMuShtW98m1xeFRD6twdm9G8Ot4", term: "25-26" },
-];
-
-// ─── Web app entry point ─────────────────────────────────────────────────────
 function doPost(e) {
   try {
     var params = JSON.parse(e.postData.contents);
-
-    // Fail closed: reject if the secret is unset OR does not match. Without the
-    // `!WEBHOOK_SECRET` check, an unset property (null) + `{"secret": null}`
-    // would pass `null !== null` → false → authorized.
     if (!WEBHOOK_SECRET || params.secret !== WEBHOOK_SECRET) {
       return ContentService.createTextOutput(
         JSON.stringify({ ok: false, error: "Unauthorized" })
@@ -71,6 +36,11 @@ function doPost(e) {
         params.month || null
       );
     }
+    // var result = syncCombinedTallMasterSheet(
+    //   params.mode  || "all",
+    //   params.term  || null,
+    //   params.month || null
+    // );
     return ContentService.createTextOutput(
       JSON.stringify({ ok: true, rowsWritten: result.rowsWritten, warnings: result.warnings })
     ).setMimeType(ContentService.MimeType.JSON);
@@ -81,7 +51,6 @@ function doPost(e) {
   }
 }
 
-// ─── Main: read source workbooks → rebuild MASTER_COMBINED_TALL ───────────────
 function syncCombinedTallMasterSheet(mode, filterTerm, filterMonth) {
   mode        = mode        || "all";
   filterTerm  = filterTerm  || null;
@@ -89,15 +58,14 @@ function syncCombinedTallMasterSheet(mode, filterTerm, filterMonth) {
 
   var sheetsToProcess = CONSOLIDATED_SHEETS;
   if (mode === "term" && filterTerm) {
-    sheetsToProcess = CONSOLIDATED_SHEETS.filter(function (c) { return c.term === filterTerm; });
+    sheetsToProcess = CONSOLIDATED_SHEETS.filter(function(c) { return c.term === filterTerm; });
   } else if (mode === "current") {
     sheetsToProcess = [CONSOLIDATED_SHEETS[CONSOLIDATED_SHEETS.length - 1]];
   }
-
-  var allRows  = [];
+  var allRows = [];
   var warnings = [];
 
-  sheetsToProcess.forEach(function (config) {
+ sheetsToProcess.forEach(function (config) {
     Logger.log("▶ Opening Spreadsheet ID: " + config.spreadsheetId + " for Term: " + config.term);
 
     try {
@@ -137,13 +105,13 @@ function syncCombinedTallMasterSheet(mode, filterTerm, filterMonth) {
       }
     } catch (e) {
       Logger.log("✗ Error opening " + config.spreadsheetId + ": " + e.message);
-      warnings.push("Error opening " + config.spreadsheetId + ": " + e.message);
+       warnings.push("Error opening " + config.spreadsheetId + ": " + e.message);
     }
   });
 
   if (allRows.length === 0) {
     Logger.log("No data collected — nothing to write.");
-    return { rowsWritten: 0, warnings: ["No data found for the selected filter."] };
+    return { rowsWritten: 0, warnings: ["No data found for the selected filter."] };;
   }
 
   Logger.log("▶ Writing " + allRows.length + " combined rows to MASTER_COMBINED_TALL...");
@@ -152,9 +120,9 @@ function syncCombinedTallMasterSheet(mode, filterTerm, filterMonth) {
   return { rowsWritten: allRows.length, warnings: warnings };
 }
 
-// ─── Parse a date-header cell into {year, month, date} ────────────────────────
+// ─── Parse a date-header cell ─────────────────────────────────────────────────
 function _parseDateHeaderCombTall(rawHeader) {
-  var ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   var d    = new Date(rawHeader);
   var yearInt, monthAbbr, monthNum;
 
@@ -168,8 +136,8 @@ function _parseDateHeaderCombTall(rawHeader) {
     for (var mi = 0; mi < ABBR.length; mi++) {
       if (str.indexOf(ABBR[mi]) !== -1) {
         monthAbbr = ABBR[mi]; monthNum = mi + 1;
-        var ym  = str.match(/\b(20\d{2})\b/);
-        yearInt = ym ? parseInt(ym[1]) : 0;
+        var ym    = str.match(/\b(20\d{2})\b/);
+        yearInt   = ym ? parseInt(ym[1]) : 0;
         break;
       }
     }
@@ -182,10 +150,8 @@ function _parseDateHeaderCombTall(rawHeader) {
   return { year: yearInt, month: monthAbbr, date: dateStr };
 }
 
+
 // ─── Extract tall rows from one source sheet ──────────────────────────────────
-// filterMonth MUST be passed in (it is a local of syncCombinedTallMasterSheet,
-// not a global). Omitting it makes the `if (filterMonth ...)` line below throw
-// ReferenceError, which the per-tab catch swallows → silent "No data found".
 function _extractTallRows(sheet, lc, term, reportType, filterMonth) {
   var data    = sheet.getDataRange().getValues();
   var results = [];
@@ -199,7 +165,7 @@ function _extractTallRows(sheet, lc, term, reportType, filterMonth) {
   }
   if (headerRow === -1) throw new Error("Cannot find header row for LC: " + lc);
 
-  var dateCols   = [];
+  var dateCols = [];
   var rawHeaders = data[headerRow];
   for (var c = 2; c < rawHeaders.length; c++) {
     var raw = rawHeaders[c];
@@ -208,9 +174,9 @@ function _extractTallRows(sheet, lc, term, reportType, filterMonth) {
     dateCols.push({ colIndex: c, year: p.year, month: p.month, date: p.date });
   }
 
-  var ALLOWED = ["LC Revenue", "LC Costs", "Net Income before NMF & Tax",
-                 "Total Assets", "Total Liabilities", "LC Equity",
-                 "Cash Inflow", "Cash Outflow", "Net Cash Movement"];
+  var ALLOWED = ["LC Revenue","LC Costs","Net Income before NMF & Tax",
+                 "Total Assets","Total Liabilities","LC Equity",
+                 "Cash Inflow","Cash Outflow","Net Cash Movement"];
 
   for (var r = headerRow + 1; r < data.length; r++) {
     var code = String(data[r][0]).trim();
@@ -247,13 +213,13 @@ function _extractTallRows(sheet, lc, term, reportType, filterMonth) {
   return results;
 }
 
-// ─── Write rows to a named tab (full overwrite) ───────────────────────────────
+// ─── Write rows to a named sheet ──────────────────────────────────────────────
 function _writeTallSheet(dataRows, tabName) {
   var masterSs = SpreadsheetApp.openById(MASTER_SPREADSHEET_ID);
   var sheet    = masterSs.getSheetByName(tabName) || masterSs.insertSheet(tabName);
 
-  var HEADERS = ["LC", "LC_Term", "Year", "Month", "Date", "Report_Type", "GFB_Code", "Description", "Amount"];
-  var out     = [HEADERS].concat(dataRows);
+  var HEADERS  = ["LC","LC_Term","Year","Month","Date","Report_Type","GFB_Code","Description","Amount"];
+  var out      = [HEADERS].concat(dataRows);
 
   sheet.clear();
   sheet.getRange(1, 1, out.length, out[0].length).setValues(out);

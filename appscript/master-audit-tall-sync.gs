@@ -4,9 +4,11 @@
 // Version-controlled reference copy. Lives in the SAME Apps Script project as
 // master-combined-tall-sync.gs — Apps Script shares one global namespace across
 // all .gs files, so this file reuses:
-//   • WEBHOOK_SECRET          (defined in master-combined-tall-sync.gs)
-//   • MASTER_SPREADSHEET_ID   (the central DB workbook that holds the tall tabs)
-//   • _parseDateHeaderCombTall (date-header parser)
+//   • WEBHOOK_SECRET           (defined in config.gs)
+//   • MASTER_SPREADSHEET_ID    (defined in config.gs — central DB workbook)
+//   • AUDIT_SPREADSHEET_ID, AUDIT_SOURCE_TAB, AUDIT_MASTER_TAB, AUDIT_TERM,
+//     AUDIT_SECTIONS           (all defined in config.gs)
+//   • _parseDateHeaderCombTall (date-header parser, in master-combined-tall-sync.gs)
 // Do NOT redeclare those here — a duplicate `const`/`function` name in the same
 // project is a redeclaration error.
 //
@@ -30,24 +32,11 @@
 //     Quality_Improvement → signed delta    (or "" if absent)   → spare / analytics
 //   LC is the short code as it appears in the sheet (CC, CN, CS, Kandy, …); the
 //   client maps that code → entity_id.
+//
+// Config (AUDIT_SPREADSHEET_ID, AUDIT_SOURCE_TAB, AUDIT_MASTER_TAB, AUDIT_TERM,
+// AUDIT_SECTIONS) lives in config.gs.
 // ============================================================
 
-// ─── Config ─────────────────────────────────────────────────────────────────
-// The Google Sheet ID of the live "EFB Audit Performance Dashboard" workbook.
-// ⚠️ FILL THIS IN with the real spreadsheet ID (from its URL: /d/<ID>/edit).
-const AUDIT_SPREADSHEET_ID = "PUT_AUDIT_DASHBOARD_SPREADSHEET_ID_HERE";
-
-// The tab inside that workbook we read from.
-const AUDIT_SOURCE_TAB = "LEY Consolidation";
-
-// The tall tab we write into the central DB workbook (MASTER_SPREADSHEET_ID).
-const AUDIT_MASTER_TAB = "MASTER_AUDIT_TALL";
-
-// Term this dashboard covers (the workbook is titled "[EFB 25.26]").
-const AUDIT_TERM = "25-26";
-
-// The three section labels in column B, in source order.
-const AUDIT_SECTIONS = ["Audit Results", "Audit Scores", "Quality Improvement"];
 
 // ─── Main: read "LEY Consolidation" → rebuild MASTER_AUDIT_TALL ───────────────
 // filterMonth (optional): "YYYY-MM-01" — keep only that period. null/omitted = all.

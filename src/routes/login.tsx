@@ -142,8 +142,8 @@ function LoginPage() {
               {mode === "signin" ? "No account? Sign up" : "Have an account? Sign in"}
             </button>
             <p className="text-center text-xs text-muted-foreground">
-              The first user to sign up automatically becomes MC admin and can assign roles to
-              others.
+              If you are a new user, sign up here and contact your MCVP for an LC role to be
+              assigned to you
             </p>
           </form>
         </CardContent>
