@@ -94,6 +94,7 @@ function syncCombinedTallMasterSheet(mode, filterTerm, filterMonth) {
           }
         } catch (tabError) {
           Logger.log("  ⚠ Error reading tab '" + sheet.getName() + "': " + tabError.message);
+          warnings.push("Term " + config.term + " — skipped tab '" + sheet.getName() + "': " + tabError.message);
         }
       });
 
