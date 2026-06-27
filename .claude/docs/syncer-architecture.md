@@ -3,7 +3,7 @@
 > **Canonical reference** for the financial data sync pipeline. Trust this file and the
 > source code over `SYSTEM_REPORT.md` / `PROJECT_CONTEXT.md` where they conflict.
 >
-> Last verified against code: **2026-06-26**.
+> Last verified against code: **2026-06-27**.
 
 This document describes the **existing financial-data syncer** end-to-end (AppScript →
 Edge Function → browser pull → Supabase), how secrets/keys flow between the layers, the
@@ -132,7 +132,21 @@ Entry point: `doPost(e)`
 - `_extractTallRows()` per tab:
   - Finds the header row (first row whose col A == `GFB CODE` or col B == `DESCRIPTION`).
   - Treats every column from index 2 onward as a **date column**, parsed by
-    `_parseDateHeaderCombTall` into `{ year, month(abbr), date("YYYY-MM-01") }`.
+    `_parseDateHeaderCombTall(rawHeader, term)` — `term` is threaded in from the enclosing
+    workbook config — into `{ year, month(abbr), date("YYYY-MM-01") }`. Supported header
+    formats (checked in priority order):
+
+    | Format | Example | Year source |
+    | --- | --- | --- |
+    | Spreadsheet Date object | (cell type = Date) | `new Date(rawHeader)` |
+    | Full month name + year | `"February 2025"` | regex `\b20\d{2}\b` |
+    | 3-letter abbr + year | `"Feb 2025"` | regex `\b20\d{2}\b` |
+    | Full month name only | `"February"` | inferred from `term` |
+    | 3-letter abbr only | `"Feb"` | inferred from `term` |
+
+    **Term inference rule** (AIESEC terms run Feb → Jan): term `"YY.YY"` (e.g. `"26.27"`) →
+    base year = `2000 + YY`; Feb–Dec → base year, Jan → base year + 1. If neither an explicit
+    year nor a valid `term` is present, `date` is empty and the mapper silently drops those rows.
   - For each data row, keeps it only if col A matches `^\d{4}-` (a real GFB code) **or** the
     description is one of the `ALLOWED` summary lines (then `GFB_Code = "SUMMARY"`):
     `LC Revenue, LC Costs, Net Income before NMF & Tax, Total Assets, Total Liabilities,

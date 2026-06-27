@@ -165,12 +165,22 @@ function syncCombinedTallMasterSheet(mode, filterTerm, filterMonth) {
 }
 
 // ─── Parse a date-header cell ─────────────────────────────────────────────────
-function _parseDateHeaderCombTall(rawHeader) {
+// Supports (in priority order):
+//   1. Spreadsheet Date object   → parsed directly by new Date()
+//   2. Full month name + year    → "February 2025"  (year found via regex)
+//   3. 3-letter abbr + year      → "Feb 2025"       (year found via regex)
+//   4. Full month name only      → "February"       (year inferred from term)
+//   5. 3-letter abbr only        → "Feb"            (year inferred from term)
+//
+// Term inference rule (AIESEC terms run Feb → Jan):
+//   term "26.27" → base year 2026; Feb–Dec = 2026, Jan = 2027
+function _parseDateHeaderCombTall(rawHeader, term) {
   var ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var d = new Date(rawHeader);
   var yearInt, monthAbbr, monthNum;
 
   if (!isNaN(d.getTime())) {
+    // Case 1: spreadsheet cell stored as a real Date
     yearInt = d.getFullYear();
     monthNum = d.getMonth() + 1;
     monthAbbr = Utilities.formatDate(d, Session.getScriptTimeZone(), "MMM");
@@ -183,8 +193,21 @@ function _parseDateHeaderCombTall(rawHeader) {
       if (str.indexOf(ABBR[mi]) !== -1) {
         monthAbbr = ABBR[mi];
         monthNum = mi + 1;
+
+        // Cases 2 & 3: explicit year present in the header string
         var ym = str.match(/\b(20\d{2})\b/);
-        yearInt = ym ? parseInt(ym[1]) : 0;
+        if (ym) {
+          yearInt = parseInt(ym[1]);
+        } else if (term) {
+          // Cases 4 & 5: no year in header — infer from term
+          // term format "YY.YY" e.g. "26.27" → base year 2026
+          // Feb(2)–Dec(12) → base year; Jan(1) → base year + 1
+          var termMatch = String(term).match(/^(\d{2})\.\d{2}$/);
+          if (termMatch) {
+            var baseYear = 2000 + parseInt(termMatch[1]);
+            yearInt = (monthNum === 1) ? baseYear + 1 : baseYear;
+          }
+        }
         break;
       }
     }
@@ -220,7 +243,7 @@ function _extractTallRows(sheet, lc, term, reportType, filterMonth) {
   for (var c = 2; c < rawHeaders.length; c++) {
     var raw = rawHeaders[c];
     if (raw === "" || String(raw).trim() === "Description") continue;
-    var p = _parseDateHeaderCombTall(raw);
+    var p = _parseDateHeaderCombTall(raw, term);
     dateCols.push({ colIndex: c, year: p.year, month: p.month, date: p.date });
   }
 
