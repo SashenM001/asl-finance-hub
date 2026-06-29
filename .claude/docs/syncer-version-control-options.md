@@ -15,6 +15,8 @@ change that logic we must **manually copy-paste it into the Apps Script editor a
 the web app** — no version control, no review, no CI, and a live secret-handling surface
 outside the repo.
 
+The Sripts project on google - `https://script.google.com/d/1rj9TK8mFRwgILQ-2QpHxW5xEJUzUWd48UapFJKUdgPMRfXjy3I89DgEN/edit?usp=sharing`
+
 The goal: get this stage into the codebase (version control, review, scripted deploy),
 ideally **reusing the Service Account pattern** we already built for `pull-sheet-data`
 ([supabase/functions/pull-sheet-data/index.ts](../../supabase/functions/pull-sheet-data/index.ts)),
