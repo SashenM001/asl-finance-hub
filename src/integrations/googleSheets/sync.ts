@@ -12,7 +12,7 @@
  *  5. Upsert to Supabase
  */
 
-import { fetchSheetData } from "./client";
+import { fetchFinancialData } from "./client";
 import { parseRow, type ParsedRow } from "./mapper";
 import { supabase } from "@/integrations/supabase/client";
 import type { Entity, FunctionCode } from "@/lib/finance";
@@ -145,7 +145,7 @@ export async function syncSheetData(): Promise<SyncResult> {
     console.log("📊 Syncing Google Sheets data (MASTER_COMBINED_TALL)...");
 
     // 1. Fetch all rows
-    const rows = await fetchSheetData();
+    const rows = await fetchFinancialData();
 
     if (!rows || rows.length < 2) {
       return {

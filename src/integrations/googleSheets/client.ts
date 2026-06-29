@@ -2,31 +2,30 @@
  * Google Sheets API v4 Client
  *
  * Fetches data from the AIESEC SL finance Google Sheet.
- * Uses the MASTER_COMBINED_TALL tab (tall/tidy format).
+ * Financial data comes from MASTER_COMBINED_TALL, audit data from MASTER_AUDIT_TALL.
  *
- * Reads are routed through the `pull-sheet-data` Supabase Edge Function,
- * which authenticates via a Service Account — the master sheet stays private.
+ * Reads are routed through the `pull-financial-data` / `pull-audit-data` Supabase
+ * Edge Functions, which authenticate via a Service Account — the master sheet
+ * stays private. Use fetchFinancialData() / fetchAuditData() below.
  */
 
 import { supabase } from "@/integrations/supabase/client";
 
 const SHEET_ID = "11veq_V1Eh4ZZ7PxDKnrc0GAJrXP2HGHbenAIXcFDgw8";
-const DEFAULT_RANGE = "MASTER_COMBINED_TALL!A1:I10000";
 
 /**
- * Fetch raw data from Google Sheet via the pull-sheet-data Edge Function.
- * The spreadsheetId and range params are kept for API compatibility but
- * the Edge Function currently serves MASTER_COMBINED_TALL only.
+ * Fetch raw sheet rows via a pull Edge Function. Each Edge Function reads exactly
+ * one private master tab using a Service Account, so the caller only picks the
+ * function name — the tab/range lives server-side.
  */
-export async function fetchSheetData(
-  _spreadsheetId: string = SHEET_ID,
-  _range: string = DEFAULT_RANGE,
+async function fetchViaEdgeFunction(
+  fnName: "pull-financial-data" | "pull-audit-data",
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[][]> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated — cannot fetch sheet data");
 
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pull-sheet-data`;
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fnName}`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -36,15 +35,27 @@ export async function fetchSheetData(
   });
 
   if (!res.ok) {
-    throw new Error(`Sheet pull failed with HTTP ${res.status}`);
+    throw new Error(`Sheet pull (${fnName}) failed with HTTP ${res.status}`);
   }
 
   const data = await res.json();
   if (!data.ok) {
-    throw new Error(`Google Sheets API error (403): ${data.error ?? "unknown"}`);
+    throw new Error(`Google Sheets API error: ${data.error ?? "unknown"}`);
   }
 
   return data.values ?? [];
+}
+
+/** Pull MASTER_COMBINED_TALL (financial) rows. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function fetchFinancialData(): Promise<any[][]> {
+  return fetchViaEdgeFunction("pull-financial-data");
+}
+
+/** Pull MASTER_AUDIT_TALL (audit) rows. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function fetchAuditData(): Promise<any[][]> {
+  return fetchViaEdgeFunction("pull-audit-data");
 }
 
 /**

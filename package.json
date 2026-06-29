@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "deploy:fn": "supabase functions deploy trigger-sheet-sync --project-ref ojivssdtzrgigqhdiues --use-api"
+    "deploy:fn": "supabase functions deploy trigger-financial-sync trigger-audit-sync pull-financial-data pull-audit-data --project-ref ojivssdtzrgigqhdiues --use-api"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

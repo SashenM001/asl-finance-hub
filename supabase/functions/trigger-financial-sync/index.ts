@@ -1,5 +1,6 @@
-// ── Supabase Edge Function: trigger-sheet-sync ──────────────────────────────
-// Proxy between the React app and the AppScript webhook.
+// ── Supabase Edge Function: trigger-financial-sync ──────────────────────────
+// Proxy between the React app and the AppScript webhook (financial path only).
+// Forwards sync: "financial". The audit counterpart is trigger-audit-sync.
 // Secrets (APPSCRIPT_WEBHOOK_URL, APPSCRIPT_SECRET) live here server-side —
 // they are never sent to the browser.
 //
@@ -73,7 +74,7 @@ Deno.serve(async (req) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       secret: Deno.env.get("APPSCRIPT_SECRET")!,
-      sync: body.sync ?? "financial", // "financial" (default) | "audit" — routes doPost in AppScript
+      sync: "financial", // routes doPost in AppScript — this function is financial-only
       mode: body.mode ?? "all",
       term: body.term ?? null,
       month: body.month ?? null,
