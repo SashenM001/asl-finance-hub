@@ -335,15 +335,10 @@ export async function syncSheetData(): Promise<SyncResult> {
     }
 
     if (revenuePayload.length > 0) {
-      console.log(`⏳ Inserting ${revenuePayload.length} revenue stream rows...`);
-      // Delete existing revenue data first (no unique constraint on entity+month+func)
-      const entityPeriods = new Set(revenuePayload.map((r) => `${r.entity_id}|${r.period_month}`));
-      for (const ep of entityPeriods) {
-        const [eid, pm] = ep.split("|");
-        await supabase.from("revenue_streams").delete().eq("entity_id", eid).eq("period_month", pm);
-      }
-
-      const { error } = await supabase.from("revenue_streams").insert(revenuePayload);
+      console.log(`⏳ Upserting ${revenuePayload.length} revenue stream rows...`);
+      const { error } = await supabase
+        .from("revenue_streams")
+        .upsert(revenuePayload, { onConflict: "entity_id,period_month,function_code" });
 
       if (error) {
         errors.push(`Revenue streams: ${error.message}`);
@@ -355,15 +350,10 @@ export async function syncSheetData(): Promise<SyncResult> {
     }
 
     if (costPayload.length > 0) {
-      console.log(`⏳ Inserting ${costPayload.length} cost breakdown rows...`);
-      // Delete existing cost data first
-      const entityPeriods = new Set(costPayload.map((r) => `${r.entity_id}|${r.period_month}`));
-      for (const ep of entityPeriods) {
-        const [eid, pm] = ep.split("|");
-        await supabase.from("cost_breakdown").delete().eq("entity_id", eid).eq("period_month", pm);
-      }
-
-      const { error } = await supabase.from("cost_breakdown").insert(costPayload);
+      console.log(`⏳ Upserting ${costPayload.length} cost breakdown rows...`);
+      const { error } = await supabase
+        .from("cost_breakdown")
+        .upsert(costPayload, { onConflict: "entity_id,period_month,function_code" });
 
       if (error) {
         errors.push(`Cost breakdown: ${error.message}`);

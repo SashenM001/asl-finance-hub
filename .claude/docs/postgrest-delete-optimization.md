@@ -1,6 +1,9 @@
 # Deferred: PostgREST delete-loop optimization (N+1 on sync)
 
-**Status:** Deferred (intentionally not done as part of the audit-pull fix, 2026-06-29).
+**Status:** ✅ DONE (2026-06-29) — Option 2 implemented. Unique constraints added to
+`audit_scores` `(entity_id, period_month)` and `revenue_streams` / `cost_breakdown`
+`(entity_id, period_month, function_code)`; all three delete-then-insert loops replaced with
+`upsert(payload, { onConflict })`. The notes below are retained for historical context.
 **Scope:** Sync write phase only — does not affect correctness, only request count.
 
 ## What the pattern is
