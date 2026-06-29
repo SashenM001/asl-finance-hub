@@ -1,6 +1,8 @@
 // Reads MASTER_COMBINED_TALL using a Service Account — sheet stays private.
 // The SA key is stored as Supabase secret GOOGLE_SA_KEY (never reaches the browser).
 // Any authenticated user can call this (read-only operation).
+//
+// Deploy: npx supabase login  →  npx supabase functions deploy pull-financial-data
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 

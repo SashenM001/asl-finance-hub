@@ -4,6 +4,8 @@
 // Secrets (APPSCRIPT_WEBHOOK_URL, APPSCRIPT_SECRET) live here server-side —
 // they are never sent to the browser.
 //
+// Deploy: npx supabase login  →  npx supabase functions deploy trigger-financial-sync
+//
 // Flow:
 //   1. Verify caller has a valid Supabase JWT
 //   2. Confirm caller has mc_user role

@@ -3,6 +3,8 @@
 // Forwards sync: "audit". The financial counterpart is trigger-financial-sync.
 // NOTE: webhook-proxy + auth block is duplicated from trigger-financial-sync —
 // keep the two in sync (full-separation architecture).
+//
+// Deploy: npx supabase login  →  npx supabase functions deploy trigger-audit-sync
 // Secrets (APPSCRIPT_WEBHOOK_URL, APPSCRIPT_SECRET) live here server-side —
 // they are never sent to the browser.
 //

@@ -2,6 +2,8 @@
 // The SA key is stored as Supabase secret GOOGLE_SA_KEY (never reaches the browser).
 // Any authenticated MC/EFB user can call this (read-only operation).
 //
+// Deploy: npx supabase login  →  npx supabase functions deploy pull-audit-data
+//
 // NOTE: The auth/SA-token block below is intentionally duplicated from
 // pull-financial-data/index.ts (full-separation architecture). Keep the two in
 // sync — any security or token fix must be applied to both files.
