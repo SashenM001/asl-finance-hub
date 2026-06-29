@@ -254,8 +254,8 @@ export async function syncSheetData(): Promise<SyncResult> {
       // We prefer the actual 'cash_flow' rows (CFS report type) from the Google Sheet.
       // If none are present (i.e., inflow/outflow are 0), we fall back to a synthetic calculation
       // based on PnL data: (totalRevenue + bank_balance) for inflow, totalCost for outflow.
-      const inflow = group.inflow > 0 ? group.inflow : group.totalRevenue + group.bank_balance;
-      const outflow = group.outflow > 0 ? group.outflow : group.totalCost;
+      const inflow = group.inflow !== 0 ? group.inflow : group.totalRevenue + group.bank_balance;
+      const outflow = group.outflow !== 0 ? group.outflow : group.totalCost;
 
       //const liquidity = group.bank_balance - group.liabilities;
 
@@ -295,7 +295,7 @@ export async function syncSheetData(): Promise<SyncResult> {
 
       // revenue_streams (one row per function with non-zero amount)
       for (const [func, amount] of Object.entries(group.revenue)) {
-        if (amount > 0) {
+        if (amount !== 0) {
           revenuePayload.push({
             entity_id: entityId,
             period_month: group.periodMonth,
@@ -307,7 +307,7 @@ export async function syncSheetData(): Promise<SyncResult> {
 
       // cost_breakdown (one row per function with non-zero amount)
       for (const [func, amount] of Object.entries(group.cost)) {
-        if (amount > 0) {
+        if (amount !== 0) {
           costPayload.push({
             entity_id: entityId,
             period_month: group.periodMonth,
