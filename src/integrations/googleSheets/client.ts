@@ -22,7 +22,9 @@ async function fetchViaEdgeFunction(
   fnName: "pull-financial-data" | "pull-audit-data",
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[][]> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated — cannot fetch sheet data");
 
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fnName}`;
