@@ -15,8 +15,37 @@ import {
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
-import { Banknote, Wallet, ArrowDownCircle, ArrowUpCircle, Landmark, Coins, TrendingUp, TrendingDown, Activity, X, Plus, ChevronRight, Download, Pin } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend, PieChart, Pie, Cell } from "recharts";
+import {
+  Banknote,
+  Wallet,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Landmark,
+  Coins,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  X,
+  Plus,
+  ChevronRight,
+  Download,
+  Pin,
+} from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  BarChart,
+  Bar,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { PnLReport } from "@/components/PnLReport";
 import { DashboardDock } from "@/components/DashboardDock";
@@ -101,11 +130,21 @@ function calculateTermFromDate(dateStr: string): string {
   const startShort = termStartYear % 100;
   const endShort = (termStartYear + 1) % 100;
 
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(startShort)}-${pad(endShort)}`;
 }
 
-function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, isLast, isPinned, onTogglePin }: DashboardSplitProps) {
+function DashboardSplit({
+  config,
+  onUpdate,
+  onRemove,
+  isSplit,
+  onMove,
+  isFirst,
+  isLast,
+  isPinned,
+  onTogglePin,
+}: DashboardSplitProps) {
   const { profile, isLC, isMC, isEFB } = useAuth();
   const [filters, setFilters] = useState<FilterState>(() => ({
     ...defaultFilters(),
@@ -154,8 +193,6 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
       : filters.entityId !== "all"
         ? filters.entityId
         : null;
-
-
 
     setLoading(true);
     (async () => {
@@ -296,7 +333,7 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
     if (aggregatedMetrics.length < 2) return null;
     const first = aggregatedMetrics[0].equity ?? 0;
     const last = aggregatedMetrics[aggregatedMetrics.length - 1].equity ?? 0;
-    return last > 0 ? ((last - first) / last) * 100 : 0;
+    return last > 0 ? ((last - first) / first) * 100 : 0;
   }, [aggregatedMetrics]);
 
   // Revenue & Cost distribution %
@@ -349,45 +386,65 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
           <div className="flex rounded-md border p-0.5 bg-muted">
             <button
               onClick={() => onUpdate({ ...config, viewMode: "graphical" })}
-              className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all cursor-pointer ${config.viewMode === "graphical"
+              className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all cursor-pointer ${
+                config.viewMode === "graphical"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
-                }`}
+              }`}
             >
               Graphical
             </button>
             <button
               onClick={() => onUpdate({ ...config, viewMode: "report" })}
-              className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all cursor-pointer ${config.viewMode === "report"
+              className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all cursor-pointer ${
+                config.viewMode === "report"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
-                }`}
+              }`}
             >
               Report
             </button>
           </div>
           {isSplit && (
-            <Button 
-              variant={isPinned ? "default" : "outline"} 
-              size="icon" 
-              className={`h-10 w-10 transition-colors ${isPinned ? "bg-blue-600 text-white hover:bg-blue-700" : ""}`} 
-              onClick={onTogglePin} 
+            <Button
+              variant={isPinned ? "default" : "outline"}
+              size="icon"
+              className={`h-10 w-10 transition-colors ${isPinned ? "bg-blue-600 text-white hover:bg-blue-700" : ""}`}
+              onClick={onTogglePin}
               title={isPinned ? "Unpin Card" : "Pin to Compare"}
             >
               <Pin className="h-4 w-4" />
             </Button>
           )}
           {isSplit && !isFirst && (
-            <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => onMove?.("left")} title="Move Left">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10"
+              onClick={() => onMove?.("left")}
+              title="Move Left"
+            >
               ←
             </Button>
           )}
           {isSplit && !isLast && (
-            <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => onMove?.("right")} title="Move Right">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10"
+              onClick={() => onMove?.("right")}
+              title="Move Right"
+            >
               →
             </Button>
           )}
-          <Button variant="outline" size="icon" className="h-10 w-10" onClick={onRemove} title="Remove Split">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10"
+            onClick={onRemove}
+            title="Remove Split"
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -401,29 +458,101 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
 
       {!isLoading && data && data.length > 0 && config.viewMode === "graphical" && latest && (
         <div className="mt-4 space-y-4">
-          <div className={isSplit ? "flex flex-wrap gap-3" : "grid gap-4 md:grid-cols-3 lg:grid-cols-5"}>
-            <KpiCard label="Bank Balance" value={fmtCurrency(latest.bank_balance)} icon={<Wallet className="h-4 w-4" />} accent="primary" className={isSplit ? "flex-grow min-w-[140px]" : ""} />
+          <div
+            className={
+              isSplit ? "flex flex-wrap gap-3" : "grid gap-4 md:grid-cols-3 lg:grid-cols-5"
+            }
+          >
+            <KpiCard
+              label="Bank Balance"
+              value={fmtCurrency(latest.bank_balance)}
+              icon={<Wallet className="h-4 w-4" />}
+              accent="primary"
+              className={isSplit ? "flex-grow min-w-[140px]" : ""}
+            />
             {/* Total Assets = assets + bank_balance + receivables + petty_cash + reserves.
                 petty_cash (8502) and reserves (8602) are stored in separate DB columns (not merged into assets)
                 to allow the MoCR numerator to be calculated precisely. No double-counting in the backend. */}
-            <KpiCard label="Total Assets" value={fmtCurrency((latest.assets ?? 0) + (latest.bank_balance ?? 0) + (latest.receivables ?? 0) + (latest.petty_cash ?? 0) + (latest.reserves ?? 0))} icon={<Landmark className="h-4 w-4" />} accent="teal" className={isSplit ? "flex-grow min-w-[140px]" : ""} />
-            <KpiCard label="Liabilities" value={fmtCurrency(latest.liabilities)} icon={<ArrowDownCircle className="h-4 w-4" />} accent="red" className={isSplit ? "flex-grow min-w-[140px]" : ""} />
-            <KpiCard label="Receivables" value={fmtCurrency(latest.receivables)} icon={<ArrowUpCircle className="h-4 w-4" />} accent="orange" className={isSplit ? "flex-grow min-w-[140px]" : ""} />
+            <KpiCard
+              label="Total Assets"
+              value={fmtCurrency(
+                (latest.assets ?? 0) +
+                  (latest.bank_balance ?? 0) +
+                  (latest.receivables ?? 0) +
+                  (latest.petty_cash ?? 0) +
+                  (latest.reserves ?? 0),
+              )}
+              icon={<Landmark className="h-4 w-4" />}
+              accent="teal"
+              className={isSplit ? "flex-grow min-w-[140px]" : ""}
+            />
+            <KpiCard
+              label="Liabilities"
+              value={fmtCurrency(latest.liabilities)}
+              icon={<ArrowDownCircle className="h-4 w-4" />}
+              accent="red"
+              className={isSplit ? "flex-grow min-w-[140px]" : ""}
+            />
+            <KpiCard
+              label="Receivables"
+              value={fmtCurrency(latest.receivables)}
+              icon={<ArrowUpCircle className="h-4 w-4" />}
+              accent="orange"
+              className={isSplit ? "flex-grow min-w-[140px]" : ""}
+            />
             {/* <KpiCard label="Liquidity" value={fmtNumber(latest.liquidity, 2)} icon={<Coins className="h-4 w-4" />} accent="green" /> */}
-            <KpiCard label="Equity" value={fmtCurrency(latest.equity)} icon={<Banknote className="h-4 w-4" />} accent="purple" className={isSplit ? "flex-grow min-w-[140px]" : ""} />
+            <KpiCard
+              label="Equity"
+              value={fmtCurrency(latest.equity)}
+              icon={<Banknote className="h-4 w-4" />}
+              accent="purple"
+              className={isSplit ? "flex-grow min-w-[140px]" : ""}
+            />
           </div>
 
           <div className={isSplit ? "flex flex-wrap gap-3" : "grid gap-4 md:grid-cols-4"}>
             {/* <KpiCard label="NPM (Term)" value={fmtPct(termNpm)} icon={<Activity className="h-4 w-4" />} accent="teal" /> */}
-            <KpiCard label="Equity Change" value={fmtPct(equityChange ?? 0)} icon={equityChange !== null && equityChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />} accent={equityChange !== null && equityChange >= 0 ? "green" : "red"} className={isSplit ? "flex-grow min-w-[140px]" : ""} />
-            <KpiCard label="Total Revenue" value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0))} icon={<Banknote className="h-4 w-4" />} accent="green" className={isSplit ? "flex-grow min-w-[140px]" : ""} />
-            <KpiCard label="Total Cost" value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_cost ?? 0), 0))} icon={<ArrowDownCircle className="h-4 w-4" />} accent="red" className={isSplit ? "flex-grow min-w-[140px]" : ""} />
+            <KpiCard
+              label="Equity Change"
+              value={fmtPct(equityChange ?? 0)}
+              icon={
+                equityChange !== null && equityChange >= 0 ? (
+                  <TrendingUp className="h-4 w-4" />
+                ) : (
+                  <TrendingDown className="h-4 w-4" />
+                )
+              }
+              accent={equityChange !== null && equityChange >= 0 ? "green" : "red"}
+              className={isSplit ? "flex-grow min-w-[140px]" : ""}
+            />
+            <KpiCard
+              label="Total Revenue"
+              value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_revenue ?? 0), 0))}
+              icon={<Banknote className="h-4 w-4" />}
+              accent="green"
+              className={isSplit ? "flex-grow min-w-[140px]" : ""}
+            />
+            <KpiCard
+              label="Total Cost"
+              value={fmtCurrency(metrics.reduce((s, m) => s + (m.total_cost ?? 0), 0))}
+              icon={<ArrowDownCircle className="h-4 w-4" />}
+              accent="red"
+              className={isSplit ? "flex-grow min-w-[140px]" : ""}
+            />
             {/* MoCR = (bank_balance + petty_cash + reserves - liabilities) / avg monthly cost (last 12 months) */}
-            <KpiCard label="MoCR" value={mocr !== null ? `${fmtNumber(mocr, 2)}` : "—"} icon={<Activity className="h-4 w-4" />} accent="teal" className={isSplit ? "flex-grow min-w-[140px]" : ""} />
+            <KpiCard
+              label="MoCR"
+              value={mocr !== null ? `${fmtNumber(mocr, 2)}` : "—"}
+              icon={<Activity className="h-4 w-4" />}
+              accent="teal"
+              className={isSplit ? "flex-grow min-w-[140px]" : ""}
+            />
           </div>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Cash and Cash Equivalent trend</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Cash and Cash Equivalent trend</CardTitle>
+            </CardHeader>
             <CardContent className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={cashTrend}>
@@ -446,7 +575,9 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
 
           <div className="grid grid-cols-1 gap-6 w-full">
             <Card>
-              <CardHeader><CardTitle className="text-base">Inflow vs Outflow</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Inflow vs Outflow</CardTitle>
+              </CardHeader>
               <CardContent className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={cashTrend}>
@@ -463,7 +594,9 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Net cash movement</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Net cash movement</CardTitle>
+              </CardHeader>
               <CardContent className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={cashTrend}>
@@ -485,15 +618,31 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
             </Card>
           </div>
 
-          <div className={isSplit ? "grid grid-cols-1 gap-6 w-full mb-8" : "grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8"}>
+          <div
+            className={
+              isSplit
+                ? "grid grid-cols-1 gap-6 w-full mb-8"
+                : "grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8"
+            }
+          >
             <Card>
-              <CardHeader><CardTitle className="text-base">Revenue by function</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Revenue by function</CardTitle>
+              </CardHeader>
               <CardContent className="h-[300px] w-full overflow-x-auto">
                 <div className="w-full h-full min-w-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={revByFnPie} dataKey="amount" nameKey="fn" innerRadius={50} outerRadius={90}>
-                        {revByFnPie.map((_, i) => <Cell key={i} fill={FN_COLORS[i % FN_COLORS.length]} />)}
+                      <Pie
+                        data={revByFnPie}
+                        dataKey="amount"
+                        nameKey="fn"
+                        innerRadius={50}
+                        outerRadius={90}
+                      >
+                        {revByFnPie.map((_, i) => (
+                          <Cell key={i} fill={FN_COLORS[i % FN_COLORS.length]} />
+                        ))}
                       </Pie>
                       <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                       <Legend content={<CustomLegend />} />
@@ -503,13 +652,23 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Cost by function</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Cost by function</CardTitle>
+              </CardHeader>
               <CardContent className="h-[300px] w-full overflow-x-auto">
                 <div className="w-full h-full min-w-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={costByFn} dataKey="amount" nameKey="fn" innerRadius={50} outerRadius={90}>
-                        {costByFn.map((_, i) => <Cell key={i} fill={FN_COLORS[i % FN_COLORS.length]} />)}
+                      <Pie
+                        data={costByFn}
+                        dataKey="amount"
+                        nameKey="fn"
+                        innerRadius={50}
+                        outerRadius={90}
+                      >
+                        {costByFn.map((_, i) => (
+                          <Cell key={i} fill={FN_COLORS[i % FN_COLORS.length]} />
+                        ))}
                       </Pie>
                       <Tooltip formatter={(v) => fmtCurrency(Number(v))} />
                       <Legend content={<CustomLegend />} />
@@ -521,7 +680,9 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
           </div>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">GPM by function (%)</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">GPM by function (%)</CardTitle>
+            </CardHeader>
             <CardContent className="h-[300px] w-full overflow-x-auto">
               <div className="w-full h-full min-w-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -547,7 +708,13 @@ function DashboardSplit({ config, onUpdate, onRemove, isSplit, onMove, isFirst, 
             </CardContent>
           </Card>
 
-          <div className={isSplit ? "grid grid-cols-1 gap-6 w-full mb-8" : "grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8"}>
+          <div
+            className={
+              isSplit
+                ? "grid grid-cols-1 gap-6 w-full mb-8"
+                : "grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8"
+            }
+          >
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Revenue Distribution (%)</CardTitle>
@@ -611,18 +778,20 @@ function LCDashboard() {
   const { profile, isLC, isMC, isEFB } = useAuth();
   const lockEntity = isLC && !isMC && !isEFB;
 
-  const [viewMode, setViewMode] = useState<'charts' | 'pnl'>('charts');
+  const [viewMode, setViewMode] = useState<"charts" | "pnl">("charts");
   const [activeMatrixIndex, setActiveMatrixIndex] = useState(0);
   const [pinnedViewId, setPinnedViewId] = useState<string | null>(null);
-  const [views, setViews] = useState<{
-    id: string;
-    entity: string;
-    term: string;
-    function: string;
-    from: string;
-    to: string;
-    viewMode: string;
-  }[]>(() => {
+  const [views, setViews] = useState<
+    {
+      id: string;
+      entity: string;
+      term: string;
+      function: string;
+      from: string;
+      to: string;
+      viewMode: string;
+    }[]
+  >(() => {
     const defaultF = defaultFilters();
     return [
       {
@@ -645,16 +814,19 @@ function LCDashboard() {
     if (!container) return;
 
     const handleScroll = () => {
-      const canScrollRight = container.scrollWidth - container.scrollLeft > container.clientWidth + 5;
+      const canScrollRight =
+        container.scrollWidth - container.scrollLeft > container.clientWidth + 5;
       setShowScrollHint(canScrollRight);
 
-      window.dispatchEvent(new CustomEvent('pnl-scroll-metrics', {
-        detail: { 
-          scrollLeft: container.scrollLeft, 
-          scrollWidth: container.scrollWidth, 
-          clientWidth: container.clientWidth 
-        }
-      }));
+      window.dispatchEvent(
+        new CustomEvent("pnl-scroll-metrics", {
+          detail: {
+            scrollLeft: container.scrollLeft,
+            scrollWidth: container.scrollWidth,
+            clientWidth: container.clientWidth,
+          },
+        }),
+      );
     };
 
     handleScroll();
@@ -673,12 +845,12 @@ function LCDashboard() {
 
   useEffect(() => {
     const handler = (e: any) => {
-      if (viewMode === 'charts' && scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTo({ left: e.detail, behavior: 'smooth' });
+      if (viewMode === "charts" && scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ left: e.detail, behavior: "smooth" });
       }
     };
-    window.addEventListener('pnl-scroll-to', handler);
-    return () => window.removeEventListener('pnl-scroll-to', handler);
+    window.addEventListener("pnl-scroll-to", handler);
+    return () => window.removeEventListener("pnl-scroll-to", handler);
   }, [viewMode]);
 
   const handleAddView = () => {
@@ -707,22 +879,22 @@ function LCDashboard() {
       from: string;
       to: string;
       viewMode: string;
-    }
+    },
   ) => {
     setViews((prev) =>
       prev.map((v) =>
         v.id === id
           ? {
-            ...v,
-            entity: newConfig.entity || "Select LC",
-            term: newConfig.term,
-            function: newConfig.function,
-            from: newConfig.from,
-            to: newConfig.to,
-            viewMode: newConfig.viewMode,
-          }
-          : v
-      )
+              ...v,
+              entity: newConfig.entity || "Select LC",
+              term: newConfig.term,
+              function: newConfig.function,
+              from: newConfig.from,
+              to: newConfig.to,
+              viewMode: newConfig.viewMode,
+            }
+          : v,
+      ),
     );
   };
 
@@ -743,9 +915,9 @@ function LCDashboard() {
   };
 
   const handleEditConfig = (id: string) => {
-    setViewMode('charts');
+    setViewMode("charts");
     setTimeout(() => {
-      document.getElementById(`card-${id}`)?.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById(`card-${id}`)?.scrollIntoView({ behavior: "smooth" });
     }, 100);
   };
 
@@ -759,34 +931,38 @@ function LCDashboard() {
         <div className="flex items-center gap-3">
           <div className="flex bg-muted p-1 rounded-lg">
             <button
-              onClick={() => setViewMode('charts')}
+              onClick={() => setViewMode("charts")}
               className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                viewMode === 'charts' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                viewMode === "charts"
+                  ? "bg-background shadow text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Charts
             </button>
             <button
-              onClick={() => setViewMode('pnl')}
+              onClick={() => setViewMode("pnl")}
               className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                viewMode === 'pnl' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                viewMode === "pnl"
+                  ? "bg-background shadow text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               PnL Matrix
             </button>
           </div>
-          
-          {viewMode === 'pnl' && (
-            <button 
-              onClick={() => window.dispatchEvent(new CustomEvent('export-pnl-csv'))}
+
+          {viewMode === "pnl" && (
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("export-pnl-csv"))}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium shadow-sm border border-transparent"
             >
               <Download className="w-4 h-4" /> Export CSV
             </button>
           )}
 
-          {viewMode === 'charts' && (
-            <button 
+          {viewMode === "charts" && (
+            <button
               onClick={handleAddView}
               className="px-4 py-2 bg-[#037EF3] text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium shadow-sm"
             >
@@ -799,7 +975,9 @@ function LCDashboard() {
       {views.length === 0 ? (
         <Card className="border-dashed p-12 text-center">
           <CardContent className="space-y-4 pt-6">
-            <p className="text-muted-foreground">No active split views. Add a split view to compare financial metrics.</p>
+            <p className="text-muted-foreground">
+              No active split views. Add a split view to compare financial metrics.
+            </p>
             <Button onClick={handleAddView} className="gap-2 mx-auto">
               <Plus className="h-4 w-4" /> Add Split View
             </Button>
@@ -807,7 +985,7 @@ function LCDashboard() {
         </Card>
       ) : (
         <div className="relative w-full">
-          {viewMode === 'charts' ? (
+          {viewMode === "charts" ? (
             <>
               <div
                 ref={scrollContainerRef}
@@ -817,11 +995,13 @@ function LCDashboard() {
                   const isPinned = view.id === pinnedViewId;
 
                   return (
-                    <div 
-                      key={view.id} 
-                      id={`card-${view.id}`} 
+                    <div
+                      key={view.id}
+                      id={`card-${view.id}`}
                       className={`${views.length === 1 ? "w-full" : "flex-none w-[500px]"} border rounded-xl p-3 md:p-6 shadow-sm space-y-4 transition-all duration-300 ${
-                        isPinned ? "sticky left-0 z-20 shadow-xl border-2 border-blue-500 bg-white" : "bg-card/50"
+                        isPinned
+                          ? "sticky left-0 z-20 shadow-xl border-2 border-blue-500 bg-white"
+                          : "bg-card/50"
                       }`}
                     >
                       <DashboardSplit
@@ -857,7 +1037,9 @@ function LCDashboard() {
                   }
                 }}
                 className={`fixed right-4 top-1/2 -translate-y-1/2 z-50 transition-opacity duration-300 bg-white/80 p-2 rounded-full shadow-lg border hover:scale-110 cursor-pointer ${
-                  showScrollHint ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                  showScrollHint
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
                 }`}
                 title="Scroll Right"
               >
@@ -865,21 +1047,23 @@ function LCDashboard() {
               </button>
             </>
           ) : (
-            <PnLMatrixView 
-              configs={views} 
-              onAddConfig={handleAddView} 
-              onRemoveConfig={handleRemove} 
-              onEditConfig={handleEditConfig} 
-              onUpdateConfig={(id, updates) => setViews(prev => prev.map(v => v.id === id ? { ...v, ...updates } : v))}
+            <PnLMatrixView
+              configs={views}
+              onAddConfig={handleAddView}
+              onRemoveConfig={handleRemove}
+              onEditConfig={handleEditConfig}
+              onUpdateConfig={(id, updates) =>
+                setViews((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)))
+              }
               onScrollIndexChange={setActiveMatrixIndex}
             />
           )}
 
-          <DashboardDock 
-            views={views} 
-            onReorder={setViews} 
-            onRemove={handleRemove} 
-            activeMatrixId={viewMode === 'pnl' ? views[activeMatrixIndex]?.id : undefined}
+          <DashboardDock
+            views={views}
+            onReorder={setViews}
+            onRemove={handleRemove}
+            activeMatrixId={viewMode === "pnl" ? views[activeMatrixIndex]?.id : undefined}
           />
         </div>
       )}
@@ -887,8 +1071,11 @@ function LCDashboard() {
   );
 }
 
-async function loadFn(table: "revenue_streams" | "cost_breakdown", ids: string[] | undefined, f: FilterState): Promise<FnRow[]> {
-
+async function loadFn(
+  table: "revenue_streams" | "cost_breakdown",
+  ids: string[] | undefined,
+  f: FilterState,
+): Promise<FnRow[]> {
   let q = supabase.from(table).select("entity_id,period_month,function_code,amount");
   if (ids) q = q.in("entity_id", ids);
   if (f.from) q = q.gte("period_month", f.from);

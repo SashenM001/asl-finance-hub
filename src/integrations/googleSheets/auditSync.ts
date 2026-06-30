@@ -16,16 +16,11 @@
  *  1. Fetch all rows from MASTER_AUDIT_TALL
  *  2. Map each LC label → entity_id
  *  3. Build one audit_scores row per (entity, month)
- *  4. Delete-then-insert per (entity, period) — audit_scores has no unique
- *     constraint on (entity_id, period_month), so upsert/onConflict is not usable.
+ *  4. Upsert on the (entity_id, period_month) unique constraint.
  */
 
-import { fetchSheetData } from "./client";
+import { fetchAuditData } from "./client";
 import { supabase } from "@/integrations/supabase/client";
-
-// Same master workbook that holds MASTER_COMBINED_TALL (not a secret — also in client.ts).
-const MASTER_SHEET_ID = "11veq_V1Eh4ZZ7PxDKnrc0GAJrXP2HGHbenAIXcFDgw8";
-const AUDIT_RANGE = "MASTER_AUDIT_TALL!A1:H10000";
 
 /**
  * LC label (as it appears in the "LEY Consolidation" tab) → canonical entity `code`.
@@ -100,7 +95,7 @@ export async function syncAuditData(): Promise<AuditSyncResult> {
   try {
     console.log("📋 Syncing audit data (MASTER_AUDIT_TALL)...");
 
-    const rows = await fetchSheetData(MASTER_SHEET_ID, AUDIT_RANGE);
+    const rows = await fetchAuditData();
     if (!rows || rows.length < 2) {
       return {
         success: false,
@@ -163,19 +158,10 @@ export async function syncAuditData(): Promise<AuditSyncResult> {
       };
     }
 
-    // Delete-then-insert per (entity, period) — no unique constraint to upsert on.
-    const entityPeriods = new Set(payload.map((r) => `${r.entity_id}|${r.period_month}`));
-    for (const ep of entityPeriods) {
-      const [eid, pm] = ep.split("|");
-      const { error } = await supabase
-        .from("audit_scores")
-        .delete()
-        .eq("entity_id", eid)
-        .eq("period_month", pm);
-      if (error) errors.push(`Delete ${ep}: ${error.message}`);
-    }
-
-    const { error: insertError } = await supabase.from("audit_scores").insert(payload);
+    // Upsert on the (entity_id, period_month) unique constraint — one request, no delete loop.
+    const { error: insertError } = await supabase
+      .from("audit_scores")
+      .upsert(payload, { onConflict: "entity_id,period_month" });
     if (insertError) {
       errors.push(`Audit scores insert: ${insertError.message}`);
       console.error("❌ Audit insert error:", insertError);

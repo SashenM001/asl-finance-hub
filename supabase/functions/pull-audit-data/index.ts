@@ -1,6 +1,12 @@
-// Reads MASTER_COMBINED_TALL using a Service Account — sheet stays private.
+// Reads MASTER_AUDIT_TALL using a Service Account — sheet stays private.
 // The SA key is stored as Supabase secret GOOGLE_SA_KEY (never reaches the browser).
-// Any authenticated user can call this (read-only operation).
+// Any authenticated MC/EFB user can call this (read-only operation).
+//
+// Deploy: npx supabase login  →  npx supabase functions deploy pull-audit-data
+//
+// NOTE: The auth/SA-token block below is intentionally duplicated from
+// pull-financial-data/index.ts (full-separation architecture). Keep the two in
+// sync — any security or token fix must be applied to both files.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -11,7 +17,7 @@ const corsHeaders = {
 };
 
 const SHEET_ID = "11veq_V1Eh4ZZ7PxDKnrc0GAJrXP2HGHbenAIXcFDgw8";
-const RANGE = "MASTER_COMBINED_TALL!A1:I10000";
+const RANGE = "MASTER_AUDIT_TALL!A1:H10000";
 
 async function getServiceAccountToken(saKeyJson: string): Promise<string> {
   const sa = JSON.parse(saKeyJson);

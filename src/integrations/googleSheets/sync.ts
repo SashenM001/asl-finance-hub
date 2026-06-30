@@ -12,7 +12,7 @@
  *  5. Upsert to Supabase
  */
 
-import { fetchSheetData } from "./client";
+import { fetchFinancialData } from "./client";
 import { parseRow, type ParsedRow } from "./mapper";
 import { supabase } from "@/integrations/supabase/client";
 import type { Entity, FunctionCode } from "@/lib/finance";
@@ -145,7 +145,7 @@ export async function syncSheetData(): Promise<SyncResult> {
     console.log("📊 Syncing Google Sheets data (MASTER_COMBINED_TALL)...");
 
     // 1. Fetch all rows
-    const rows = await fetchSheetData();
+    const rows = await fetchFinancialData();
 
     if (!rows || rows.length < 2) {
       return {
@@ -254,8 +254,8 @@ export async function syncSheetData(): Promise<SyncResult> {
       // We prefer the actual 'cash_flow' rows (CFS report type) from the Google Sheet.
       // If none are present (i.e., inflow/outflow are 0), we fall back to a synthetic calculation
       // based on PnL data: (totalRevenue + bank_balance) for inflow, totalCost for outflow.
-      const inflow = group.inflow > 0 ? group.inflow : group.totalRevenue + group.bank_balance;
-      const outflow = group.outflow > 0 ? group.outflow : group.totalCost;
+      const inflow = group.inflow !== 0 ? group.inflow : group.totalRevenue + group.bank_balance;
+      const outflow = group.outflow !== 0 ? group.outflow : group.totalCost;
 
       //const liquidity = group.bank_balance - group.liabilities;
 
@@ -295,7 +295,7 @@ export async function syncSheetData(): Promise<SyncResult> {
 
       // revenue_streams (one row per function with non-zero amount)
       for (const [func, amount] of Object.entries(group.revenue)) {
-        if (amount > 0) {
+        if (amount !== 0) {
           revenuePayload.push({
             entity_id: entityId,
             period_month: group.periodMonth,
@@ -307,7 +307,7 @@ export async function syncSheetData(): Promise<SyncResult> {
 
       // cost_breakdown (one row per function with non-zero amount)
       for (const [func, amount] of Object.entries(group.cost)) {
-        if (amount > 0) {
+        if (amount !== 0) {
           costPayload.push({
             entity_id: entityId,
             period_month: group.periodMonth,
@@ -335,15 +335,10 @@ export async function syncSheetData(): Promise<SyncResult> {
     }
 
     if (revenuePayload.length > 0) {
-      console.log(`⏳ Inserting ${revenuePayload.length} revenue stream rows...`);
-      // Delete existing revenue data first (no unique constraint on entity+month+func)
-      const entityPeriods = new Set(revenuePayload.map((r) => `${r.entity_id}|${r.period_month}`));
-      for (const ep of entityPeriods) {
-        const [eid, pm] = ep.split("|");
-        await supabase.from("revenue_streams").delete().eq("entity_id", eid).eq("period_month", pm);
-      }
-
-      const { error } = await supabase.from("revenue_streams").insert(revenuePayload);
+      console.log(`⏳ Upserting ${revenuePayload.length} revenue stream rows...`);
+      const { error } = await supabase
+        .from("revenue_streams")
+        .upsert(revenuePayload, { onConflict: "entity_id,period_month,function_code" });
 
       if (error) {
         errors.push(`Revenue streams: ${error.message}`);
@@ -355,15 +350,10 @@ export async function syncSheetData(): Promise<SyncResult> {
     }
 
     if (costPayload.length > 0) {
-      console.log(`⏳ Inserting ${costPayload.length} cost breakdown rows...`);
-      // Delete existing cost data first
-      const entityPeriods = new Set(costPayload.map((r) => `${r.entity_id}|${r.period_month}`));
-      for (const ep of entityPeriods) {
-        const [eid, pm] = ep.split("|");
-        await supabase.from("cost_breakdown").delete().eq("entity_id", eid).eq("period_month", pm);
-      }
-
-      const { error } = await supabase.from("cost_breakdown").insert(costPayload);
+      console.log(`⏳ Upserting ${costPayload.length} cost breakdown rows...`);
+      const { error } = await supabase
+        .from("cost_breakdown")
+        .upsert(costPayload, { onConflict: "entity_id,period_month,function_code" });
 
       if (error) {
         errors.push(`Cost breakdown: ${error.message}`);

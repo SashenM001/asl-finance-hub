@@ -44,7 +44,7 @@ export function useSheetSync() {
       } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const edgeFnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trigger-sheet-sync`;
+      const edgeFnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trigger-financial-sync`;
 
       const webhookRes = await fetch(edgeFnUrl, {
         method: "POST",
