@@ -114,12 +114,14 @@ Finance Dashboard/
 │   │   ├── KpiCard.tsx           # Reusable KPI metric card
 │   │   └── ui/                   # shadcn/ui primitives (15+ components)
 │   ├── hooks/
-│   │   └── useSheetSync.ts       # Custom hook for Google Sheets sync
+│   │   ├── useSheetSync.ts       # Financial Google Sheets sync hook
+│   │   └── useAuditSync.ts       # EFB audit sync hook
 │   ├── integrations/
 │   │   ├── googleSheets/
-│   │   │   ├── client.ts         # Google Sheets API HTTP client
-│   │   │   ├── mapper.ts         # GFB code classifier + LC mapper
-│   │   │   ├── sync.ts           # Sync orchestrator (aggregate + upsert)
+│   │   │   ├── client.ts         # Edge Function pull clients (financial + audit)
+│   │   │   ├── mapper.ts         # GFB_DICTIONARY classifier + LC mapper
+│   │   │   ├── sync.ts           # Financial orchestrator (aggregate + upsert)
+│   │   │   ├── auditSync.ts      # Audit orchestrator (upsert audit_scores)
 │   │   │   └── index.ts          # Public exports
 │   │   └── supabase/
 │   │       ├── client.ts         # Supabase JS client (lazy Proxy)
@@ -135,10 +137,10 @@ Finance Dashboard/
 │   │   ├── _app.tsx              # Auth guard + layout wrapper
 │   │   ├── _app.overview.tsx     # Global Overview (Home)
 │   │   ├── _app.lc.tsx           # LC Dashboard
-│   │   ├── _app.budget.tsx       # Budget vs Actual
-│   │   ├── _app.performance.tsx  # Performance Analysis
+│   │   ├── -_app.budget.tsx      # Budget vs Actual (DISABLED — '-' prefix, not routed)
+│   │   ├── -_app.performance.tsx # Performance Analysis (DISABLED — '-' prefix, not routed)
 │   │   ├── _app.audit.tsx        # EFB Audit Results
-│   │   ├── _app.review.tsx       # Monthly Review
+│   │   ├── -_app.review.tsx      # Monthly Review (DISABLED — '-' prefix, not routed)
 │   │   ├── _app.contacts.tsx     # Help & Contacts
 │   │   └── _app.admin.tsx        # Admin (MC only)
 │   ├── router.tsx                # TanStack Router config
@@ -235,9 +237,9 @@ erDiagram
 | `monthly_metrics` | ~245 | Aggregated monthly financial KPIs per entity |
 | `revenue_streams` | ~715 | Revenue by function code per entity per month |
 | `cost_breakdown` | ~453 | Cost by function code per entity per month |
-| `budget_actual` | 0 | Budget vs Actual data (awaiting data entry) |
-| `audit_scores` | 0 | EFB audit scores (awaiting data entry) |
-| `monthly_review` | 0 | Monthly review pass/fail records (awaiting data entry) |
+| `budget_actual` | 0 | Budget vs Actual data (awaiting data source; page disabled) |
+| `audit_scores` | populated | EFB audit scores — now synced live via the audit syncer (`trigger-audit-sync` → `pull-audit-data` → `syncAuditData`), ~10 LCs |
+| `monthly_review` | 0 | Monthly review pass/fail records (awaiting data source; page disabled) |
 
 ### Enums
 
@@ -315,7 +317,7 @@ flowchart LR
     EF -->|② forward + secret| AS["AppScript doPost<br/>rebuild master tab"]
     AS --> GS["Google Sheet<br/>MASTER_COMBINED_TALL"]
     GS -->|③ SA OAuth read| PF["Edge Function<br/>pull-financial-data<br/>Service Account auth"]
-    PF -->|④ {ok,values}| B["client.ts<br/>fetchSheetData()"]
+    PF -->|④ {ok,values}| B["client.ts<br/>fetchFinancialData()"]
     B --> C["mapper.ts<br/>parseRow() → GFB_DICTIONARY<br/>LC_CODE_TO_NAME"]
     C --> D["sync.ts<br/>group by (entity, month)<br/>aggregate, derive NPM/liquidity"]
     D -->|④ upsert via PostgREST| E["Supabase DB<br/>monthly_metrics<br/>revenue_streams<br/>cost_breakdown"]
@@ -428,6 +430,10 @@ full `GFB_DICTIONARY`.
 
 ### Page 4: Budget vs Actual
 
+> ⚠️ **Page currently DISABLED** — route file is `-_app.budget.tsx` (`-` prefix ⇒ not routed)
+> and its nav link is commented out. The inventory below reflects the built-but-unrouted page;
+> the `budget_actual` table is still empty (no EFB data source yet).
+
 | Requirement | Status | Notes |
 |------------|--------|-------|
 | Variance table (Budget, Actual, Variance, %) | ✅ | Table with color-coded status badges |
@@ -440,6 +446,9 @@ full `GFB_DICTIONARY`.
 > The `budget_actual` table is **empty**. Budget data is not present in the Google Sheet — it needs to be entered manually through the Supabase Dashboard or a future data entry UI.
 
 ### Page 5: Performance Analysis
+
+> ⚠️ **Page currently DISABLED** — route file is `-_app.performance.tsx` (`-` prefix ⇒ not routed)
+> and its nav link is commented out. The inventory below reflects the built-but-unrouted page.
 
 | Requirement | Status | Notes |
 |------------|--------|-------|
@@ -465,6 +474,10 @@ full `GFB_DICTIONARY`.
 | Specific scoring columns (ELD, Posting Accuracy, etc.) | ⚠️ | **Not implemented** — single `score` field vs multi-criteria |
 
 ### Page 7: Monthly Review
+
+> ⚠️ **Page currently DISABLED** — route file is `-_app.review.tsx` (`-` prefix ⇒ not routed)
+> and its nav link is commented out. The inventory below reflects the built-but-unrouted page;
+> the `monthly_review` table is still empty.
 
 | Requirement | Status | Notes |
 |------------|--------|-------|
@@ -538,7 +551,7 @@ full `GFB_DICTIONARY`.
 
 | # | Issue | Impact |
 |---|-------|--------|
-| 3 | `budget_actual`, `audit_scores`, `monthly_review` tables are empty | Budget, Audit, and Review pages show "No data" |
+| 3 | `budget_actual`, `monthly_review` tables are empty (`audit_scores` now populated via the live audit sync) | Budget & Review pages have no data (both are disabled anyway); Audit page is live |
 | 4 | Rankings, Health Index, OD Score are always 0 | Home page shows #0 for rankings — needs manual data or AI formula |
 | 5 | No mobile hamburger menu | Sidebar hidden on mobile, no way to navigate |
 | 6 | ~~Google Sheets sync is partly client-side~~ ✅ **Resolved** | Both steps are now server-gated, with financial and audit fully split into separate Edge Function pairs: step 1 via `trigger-financial-sync` / `trigger-audit-sync` (JWT + `mc_user`), step 2 via `pull-financial-data` / `pull-audit-data` (JWT + Service Account — master sheet is private). `VITE_GOOGLE_SHEETS_API_KEY` is no longer on the active sync path. |

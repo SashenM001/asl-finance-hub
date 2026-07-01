@@ -94,14 +94,20 @@ can_read_entity(_user_id, _entity_id) → BOOLEAN
 ### Public
 - **`/login`** — Email + password sign in/up
 
-### Authenticated
+### Authenticated (live)
 - **`/overview`** — Global KPIs (rankings, revenue, npm, gpm, equity growth, health, od score) + trend charts
 - **`/lc`** — Bank balance, inflow/outflow, net cash, assets/liabilities/receivables/liquidity/equity, revenue/cost pies, gpm by function
+- **`/audit`** — Quarterly summary, monthly breakdown, CSV export
+- **`/contacts`** — Finance roles directory
+
+### Disabled (in codebase, not routed)
+> These route files are prefixed with `-` (`-_app.budget.tsx`, `-_app.performance.tsx`,
+> `-_app.review.tsx`) so TanStack Router does not register them, and their nav links in
+> `AppShell.tsx` are commented out. The EFB has not yet supplied data for these pages. Drop the
+> `-` prefix and uncomment the nav link to re-enable.
 - **`/budget`** — Color-coded variance table (budget vs actual)
 - **`/performance`** — Period vs period, cumulative to-date, entity vs national avg (MC/EFB only)
-- **`/audit`** — Quarterly summary, monthly breakdown, CSV export
 - **`/review`** — Pass/fail tracker with remarks
-- **`/contacts`** — Finance roles directory
 
 ### Admin (MC Only)
 - **`/admin`** — Assign roles & entities to users
@@ -179,12 +185,18 @@ npm run build # ✅ Successful (warning: chunk >500kB — not critical)
 
 ### ⏳ IN PROGRESS / PENDING
 
-#### Phase 1: Google Sheets Integration (CRITICAL)
-- [ ] Implement Google Sheets API client
-- [ ] Map sheet columns to dashboard metrics
-- [ ] Create real-time sync function
-- [ ] Populate initial data from sheet
-- [ ] Handle missing values & normalization
+> **Historical note (superseded):** the phased checklist below is the original 24 April 2026
+> plan. Phase 1 (Google Sheets Integration) and Phase 2 (initial data population) are **done** —
+> financial and audit data now sync live via the Edge Function pipeline (see the ✅ COMPLETED
+> section above and [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md)).
+> The remaining items are aspirational; trust the code over these checkboxes.
+
+#### Phase 1: Google Sheets Integration — ✅ COMPLETE (kept for history)
+- [x] Implement Google Sheets API client (now server-side via `pull-*-data` Edge Functions)
+- [x] Map sheet columns to dashboard metrics (`mapper.ts` exact `GFB_DICTIONARY`)
+- [x] Create sync function (`sync.ts` / `auditSync.ts`)
+- [x] Populate initial data from sheet
+- [x] Handle missing values & normalization
 
 #### Phase 2: Seed Data Initialization
 - [ ] Create seed script for 12 months × 11 entities

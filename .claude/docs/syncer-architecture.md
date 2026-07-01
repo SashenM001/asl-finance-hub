@@ -196,7 +196,8 @@ Files: [sync.ts](../../src/integrations/googleSheets/sync.ts),
 [mapper.ts](../../src/integrations/googleSheets/mapper.ts).
 
 1. **Fetch** — `client.ts` `fetchFinancialData()` POSTs to the `pull-financial-data` Edge
-   Function with the user's Supabase session Bearer token. The Edge Function authenticates as the
+   Function with the user's Supabase session Bearer token. The Edge Function verifies the JWT and
+   requires an `mc_user` or `efb_user` role (403 otherwise), then authenticates as the
    Service Account and returns `{ ok: true, values: string[][] }` containing
    `MASTER_COMBINED_TALL!A1:I10000`. No API key is used; the master sheet is private.
 2. **Parse** — `mapper.ts` `parseRow()` turns each raw row into a `ParsedRow`:
@@ -213,11 +214,12 @@ Files: [sync.ts](../../src/integrations/googleSheets/sync.ts),
      no CFS rows present.
    - **MoCR note:** `petty_cash` and `reserves` are kept **separate** from `assets` to keep
      the MoCR numerator precise; the frontend adds them back for "Total Assets" display.
-4. **Upsert** — into Supabase:
+4. **Upsert** — into Supabase (all three via a single `upsert(..., { onConflict })` call each,
+   after the `20260629000000_add_sync_upsert_constraints.sql` migration added the needed unique
+   constraints):
    - `monthly_metrics` — upsert on `(entity_id, period_month)`.
-   - `revenue_streams` / `cost_breakdown` — **delete-then-insert** per `(entity_id,
-period_month)` (no unique constraint on the function dimension), one row per function
-     with a non-zero amount.
+   - `revenue_streams` / `cost_breakdown` — upsert on `(entity_id, period_month, function_code)`,
+     one row per function with a non-zero amount.
 
 > **Heuristic → dictionary migration.** Older docs describe classification by GFB-code
 > _prefix_ (`7xxx`=PnL, `1xxx`=CFS) and function-code-by-keyword matching. The current
@@ -245,8 +247,8 @@ Audit ingest (`auditSync.ts`) is covered in §6.5.
 - The **step-1 trigger** (browser → AppScript) is gated behind each `trigger-*-sync` Edge
   Function's JWT + `mc_user` check. The browser never sees the AppScript URL or shared secret.
 - The **step-2 read** is gated behind each `pull-*-data` Edge Function's JWT check.
-  `pull-financial-data` requires any authenticated user; `pull-audit-data` requires `mc_user` or
-  `efb_user`. The master sheet is **private** — no public access. The SA key never leaves the
+  Both `pull-financial-data` and `pull-audit-data` require an `mc_user` or `efb_user` role
+  (403 otherwise). The master sheet is **private** — no public access. The SA key never leaves the
   Edge Function runtime. The writes that result are still RLS-protected (only MC can write
   finance tables; MC/EFB can write `audit_scores`).
 
@@ -254,13 +256,15 @@ Audit ingest (`auditSync.ts`) is covered in §6.5.
 
 ## 4. Known issues / deviations (sync-specific)
 
-1. **Stale re-export in [googleSheets/index.ts](../../src/integrations/googleSheets/index.ts)** —
-   it re-exports `classifyRow` and `descriptionToFunctionCode` from `./mapper`, which no longer
-   exist there (replaced by `getGfbMapping`). Harmless only as long as nothing imports them;
-   clean up the export list.
-2. **`revenue_streams` / `cost_breakdown` delete-then-insert is not transactional** — a
-   failure between delete and insert leaves a gap for that `(entity, month)` until the next
-   successful sync.
+1. ~~**Stale re-export in [googleSheets/index.ts](../../src/integrations/googleSheets/index.ts)**~~
+   — **Resolved.** It previously re-exported `classifyRow` / `descriptionToFunctionCode`, which no
+   longer exist in `./mapper`; the export list now re-exports the real `getGfbMapping` instead.
+2. ~~**`revenue_streams` / `cost_breakdown` delete-then-insert is not transactional**~~ —
+   **Resolved** (migration `20260629000000_add_sync_upsert_constraints.sql`, 2026-06-29). All
+   three write paths (`monthly_metrics`, `revenue_streams`, `cost_breakdown`, plus `audit_scores`)
+   now use a single `upsert(..., { onConflict })` call instead of a delete-then-insert loop, so
+   there is no longer a delete/insert gap. See
+   [.claude/docs/postgrest-delete-optimization.md](./postgrest-delete-optimization.md).
 3. **Auth/SA-token logic is duplicated four ways** (`trigger-financial-sync` ↔
    `trigger-audit-sync`, `pull-financial-data` ↔ `pull-audit-data`) by design (see §2.2, §6.4)
    rather than shared via a common module. Any auth or token-signing fix must be applied to all

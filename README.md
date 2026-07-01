@@ -60,7 +60,7 @@ The sync runs through four Supabase Edge Functions (a separate trigger/pull pair
 | ------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
 | `GOOGLE_SA_KEY`     | `pull-financial-data`, `pull-audit-data`    | Full Google Service Account JSON. Signs a JWT to read the private master sheet via OAuth.    |
 | `APPSCRIPT_WEBHOOK_URL` | `trigger-financial-sync`, `trigger-audit-sync` | URL of the AppScript webhook that rebuilds the master tab.                                  |
-| `APPSCRIPT_WEBHOOK_SECRET` | `trigger-financial-sync`, `trigger-audit-sync` | Shared secret the AppScript checks before running.                                      |
+| `APPSCRIPT_SECRET` | `trigger-financial-sync`, `trigger-audit-sync` | Shared secret the AppScript checks before running.                                      |
 
 > **Service Account setup:** Create a Service Account in Google Cloud, download its JSON key, and **share the master spreadsheet with the SA's `client_email` as Viewer**. Paste the entire JSON as the `GOOGLE_SA_KEY` secret. The SA key must never be committed to git or placed in a `VITE_`-prefixed variable. To hand the project to a new owner, they create their own SA in their GCP project, share the sheet with the new `client_email`, and replace `GOOGLE_SA_KEY` — the GCP project and the AppScript project are independent.
 
