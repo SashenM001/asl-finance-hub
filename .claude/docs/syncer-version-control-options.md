@@ -4,6 +4,13 @@
 > [syncer-architecture.md](syncer-architecture.md), which describes the pipeline as it exists
 > today. This doc evaluates how to move the **read → clean → consolidate-into-master** stage out
 > of the Apps Script editor and into the codebase. Last updated: 2026-06-27.
+>
+> **Naming note (2026-07-01):** this doc predates the syncer split and still refers to single
+> `pull-sheet-data` / `trigger-sheet-sync` Edge Functions. Those no longer exist — the pipeline
+> was split into `pull-financial-data` / `pull-audit-data` and `trigger-financial-sync` /
+> `trigger-audit-sync` (see [syncer-architecture.md](syncer-architecture.md)). Read the old names
+> below as "the corresponding `pull-*-data` / `trigger-*-sync` function"; the options and
+> trade-offs are unchanged.
 
 ## Context
 
@@ -18,8 +25,8 @@ outside the repo.
 The Sripts project on google - `https://script.google.com/d/1rj9TK8mFRwgILQ-2QpHxW5xEJUzUWd48UapFJKUdgPMRfXjy3I89DgEN/edit?usp=sharing`
 
 The goal: get this stage into the codebase (version control, review, scripted deploy),
-ideally **reusing the Service Account pattern** we already built for `pull-sheet-data`
-([supabase/functions/pull-sheet-data/index.ts](../../supabase/functions/pull-sheet-data/index.ts)),
+ideally **reusing the Service Account pattern** we already built for the pull functions
+([supabase/functions/pull-financial-data/index.ts](../../supabase/functions/pull-financial-data/index.ts)),
 at **zero cost** at our usage rates.
 
 ### What the Apps Script actually does (the part we're moving)
@@ -142,7 +149,7 @@ mechanism is added.
 
 | Item | Today (Apps Script) | Under Option A (Edge Function) |
 |---|---|---|
-| `MASTER_SPREADSHEET_ID` | `const` in `config.gs` | EF constant / env var (same ID already hardcoded in [pull-sheet-data/index.ts:13](../../supabase/functions/pull-sheet-data/index.ts#L13)) |
+| `MASTER_SPREADSHEET_ID` | `const` in `config.gs` | EF constant / env var (same ID already hardcoded in [pull-financial-data/index.ts](../../supabase/functions/pull-financial-data/index.ts)) |
 | `CONSOLIDATED_SHEETS` (3× `{spreadsheetId, term}`) | `const` array | Port verbatim into the EF (or a Supabase config table). **Each ID must be shared with the SA email.** |
 | `AUDIT_SPREADSHEET_ID`, `AUDIT_SOURCE_TAB`, `AUDIT_MASTER_TAB`, `AUDIT_TERM`, `AUDIT_SECTIONS` | `const`s | Port verbatim into the EF. `AUDIT_SPREADSHEET_ID` is still unfilled in the live project (see syncer-architecture §6.9) — resolve as part of the move. |
 | `WEBHOOK_SECRET` via `PropertiesService.getScriptProperties()` | shared-secret gate for `doPost` | **Deleted.** Auth becomes the Supabase JWT + `mc_user` check already in `trigger-sheet-sync`. The whole `APPSCRIPT_SECRET` / `APPSCRIPT_WEBHOOK_URL` secret pair retires with it. |

@@ -54,13 +54,13 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 ### Supabase Edge Function secrets
 
-The sync runs through two Supabase Edge Functions, which read these secrets server-side (set them in **Supabase Dashboard → Edge Functions → Secrets**, or via `npx supabase secrets set`). They never reach the browser:
+The sync runs through four Supabase Edge Functions (a separate trigger/pull pair each for financial and audit), which read these secrets server-side (set them in **Supabase Dashboard → Edge Functions → Secrets**, or via `npx supabase secrets set`). They never reach the browser:
 
 | Secret              | Used by              | Purpose                                                                                     |
 | ------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
-| `GOOGLE_SA_KEY`     | `pull-sheet-data`    | Full Google Service Account JSON. Signs a JWT to read the private master sheet via OAuth.    |
-| `APPSCRIPT_WEBHOOK_URL` | `trigger-sheet-sync` | URL of the AppScript webhook that rebuilds the master tab.                                  |
-| `APPSCRIPT_WEBHOOK_SECRET` | `trigger-sheet-sync` | Shared secret the AppScript checks before running.                                      |
+| `GOOGLE_SA_KEY`     | `pull-financial-data`, `pull-audit-data`    | Full Google Service Account JSON. Signs a JWT to read the private master sheet via OAuth.    |
+| `APPSCRIPT_WEBHOOK_URL` | `trigger-financial-sync`, `trigger-audit-sync` | URL of the AppScript webhook that rebuilds the master tab.                                  |
+| `APPSCRIPT_SECRET` | `trigger-financial-sync`, `trigger-audit-sync` | Shared secret the AppScript checks before running.                                      |
 
 > **Service Account setup:** Create a Service Account in Google Cloud, download its JSON key, and **share the master spreadsheet with the SA's `client_email` as Viewer**. Paste the entire JSON as the `GOOGLE_SA_KEY` secret. The SA key must never be committed to git or placed in a `VITE_`-prefixed variable. To hand the project to a new owner, they create their own SA in their GCP project, share the sheet with the new `client_email`, and replace `GOOGLE_SA_KEY` — the GCP project and the AppScript project are independent.
 
@@ -73,7 +73,7 @@ npm run build:dev    # Development-mode build
 npm run preview      # Preview the production build
 npm run lint         # ESLint
 npm run format       # Prettier (write)
-npm run deploy:fn    # Deploy the Supabase Edge Functions (trigger-sheet-sync, pull-sheet-data)
+npm run deploy:fn    # Deploy the Supabase Edge Functions (trigger-financial-sync, pull-financial-data, trigger-audit-sync, pull-audit-data)
 ```
 
 There is no test suite configured.
@@ -106,13 +106,12 @@ RLS is enforced in PostgreSQL via `SECURITY DEFINER` helper functions (`has_role
 
 ### Google Sheets Sync
 
-There are **two independent syncers**, both triggered from the MC-only Admin page: a **financial** sync and an **audit** sync. They share the same trust/transport plumbing but pull from different data sources into different tables.
+There are **two fully-separated syncers**, both triggered from the MC-only Admin page: a **financial** sync and an **audit** sync. Each has its own Edge Function pair (`trigger-*-sync` / `pull-*-data`); they share only the underlying AppScript project and Supabase secrets.
 
-**What they share (one pipeline):**
+**What they share:**
 
-- A single Edge Function, `supabase/functions/trigger-sheet-sync`, fronts both. It verifies the caller's JWT + `mc_user` role, then forwards the request to one Google AppScript webhook (URL + secret stored as Supabase secrets, never exposed to the browser).
-- The request body carries a `sync` discriminator — `"financial"` (default) or `"audit"` — which routes `doPost` in the AppScript to build the correct master tab.
-- Both follow the same **two-step** shape: (1) trigger the AppScript build via the `trigger-sheet-sync` Edge Function, then (2) read the resulting master tab through the `pull-sheet-data` Edge Function — which authenticates to Google as a Service Account, so the master sheet stays private — and write the rows to Supabase from the browser.
+- `supabase/functions/trigger-financial-sync` and `trigger-audit-sync` are separate Edge Functions with intentionally duplicated bodies. Each verifies the caller's JWT + `mc_user` role, then forwards the request to the same Google AppScript webhook (URL + secret stored as Supabase secrets, never exposed to the browser), sending a fixed `sync` discriminator (`"financial"` or `"audit"`) that routes `doPost` in the AppScript to build the correct master tab.
+- Both follow the same **two-step** shape: (1) trigger the AppScript build via the `trigger-*-sync` Edge Function, then (2) read the resulting master tab through the matching `pull-financial-data` / `pull-audit-data` Edge Function — each authenticates to Google as a Service Account (sharing the `GOOGLE_SA_KEY` secret) so the master sheet stays private — and write the rows to Supabase from the browser.
 
 **Where they diverge (two data sources):**
 
@@ -123,12 +122,12 @@ There are **two independent syncers**, both triggered from the MC-only Admin pag
 | Master tab    | `MASTER_COMBINED_TALL`                                          | `MASTER_AUDIT_TALL`                                                                       |
 | AppScript     | `appscript/master-combined-tall-sync.gs`                        | `appscript/master-audit-tall-sync.gs`                                                     |
 | Client pull   | `syncSheetData()` (`src/integrations/googleSheets/sync.ts`)     | `syncAuditData()` (`src/integrations/googleSheets/auditSync.ts`)                          |
-| Target tables | `monthly_metrics`, `revenue_streams`, `cost_breakdown` (upsert) | `audit_scores` (delete-then-insert per entity/period — no unique constraint to upsert on) |
+| Target tables | `monthly_metrics`, `revenue_streams`, `cost_breakdown` (upsert) | `audit_scores` (upsert on `entity_id, period_month`) |
 | Coverage      | All 11 LCs                                                      | 10 LCs                                                                                    |
 
 The financial sync also supports a `mode` (`all` / `term` / `current`) to scope which periods get rebuilt; the audit sync rebuilds the full audit set.
 
-See [Supabase Edge Function secrets](#supabase-edge-function-secrets) for the Service Account and webhook secrets the sync needs. [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) documents the legacy API-key setup, which is no longer on the active sync path.
+See [Supabase Edge Function secrets](#supabase-edge-function-secrets) for the Service Account and webhook secrets the sync needs.
 
 ---
 
@@ -147,4 +146,4 @@ Detailed schema and RBAC notes are in [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) a
 - [CLAUDE.md](CLAUDE.md) — architecture guide for working in this repo
 - [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) — schema, RBAC, and feature status
 - [SYSTEM_REPORT.md](SYSTEM_REPORT.md) — full system report
-- [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) — Google Sheets sync setup
+- [.claude/docs/syncer-architecture.md](.claude/docs/syncer-architecture.md) — Google Sheets sync architecture

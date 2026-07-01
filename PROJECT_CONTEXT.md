@@ -55,9 +55,10 @@ Colombo Central, Colombo North, Colombo South, Kandy, USJ, NSBM, Ruhuna, Rajarat
 | `monthly_review` | Pass/fail tracker | entity_id, period_month, status, remarks, reviewed_by |
 
 **Function Codes** (current — source of truth `src/lib/finance.ts`): `iGV`, `iGT`, `oGV`,
-`oGT`, `ELD`, `EwA`, `Miscellaneous`, `NMF`, `Conference`, `National Conference Delegation`.
-The original 7-value migration enum (`…EwA, BD`) is stale — see the enum-drift note in
-[`CLAUDE.md`](CLAUDE.md).
+`oGT`, `ELD`, `EwA`, `Miscellaneous`, `NMF`, `Conference`, `National Conference Delegation`,
+`Project Management`. The live DB `function_code` enum (`src/integrations/supabase/types.ts`)
+additionally carries legacy unused values (`BD`, `iGTa`, `iGTe`, `oGTa`, `oGTe`) left over from
+schema evolution — see the enum-drift note in [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
@@ -93,14 +94,20 @@ can_read_entity(_user_id, _entity_id) → BOOLEAN
 ### Public
 - **`/login`** — Email + password sign in/up
 
-### Authenticated
+### Authenticated (live)
 - **`/overview`** — Global KPIs (rankings, revenue, npm, gpm, equity growth, health, od score) + trend charts
 - **`/lc`** — Bank balance, inflow/outflow, net cash, assets/liabilities/receivables/liquidity/equity, revenue/cost pies, gpm by function
+- **`/audit`** — Quarterly summary, monthly breakdown, CSV export
+- **`/contacts`** — Finance roles directory
+
+### Disabled (in codebase, not routed)
+> These route files are prefixed with `-` (`-_app.budget.tsx`, `-_app.performance.tsx`,
+> `-_app.review.tsx`) so TanStack Router does not register them, and their nav links in
+> `AppShell.tsx` are commented out. The EFB has not yet supplied data for these pages. Drop the
+> `-` prefix and uncomment the nav link to re-enable.
 - **`/budget`** — Color-coded variance table (budget vs actual)
 - **`/performance`** — Period vs period, cumulative to-date, entity vs national avg (MC/EFB only)
-- **`/audit`** — Quarterly summary, monthly breakdown, CSV export
 - **`/review`** — Pass/fail tracker with remarks
-- **`/contacts`** — Finance roles directory
 
 ### Admin (MC Only)
 - **`/admin`** — Assign roles & entities to users
@@ -120,7 +127,7 @@ can_read_entity(_user_id, _entity_id) → BOOLEAN
 | **Backend** | Self-managed Supabase (Postgres + RLS + Auth + Edge Functions) — *migrated off Lovable-managed Supabase* |
 | **Frontend** | Vite + TanStack Start, React 19, TypeScript |
 | **UI Components** | Radix UI / shadcn/ui, Recharts (charts) |
-| **External sync** | Google Sheets API v4 + a Google AppScript webhook, gated by the `trigger-sheet-sync` Edge Function |
+| **External sync** | Google Sheets API v4 + a Google AppScript webhook, gated by the `trigger-financial-sync` / `trigger-audit-sync` Edge Functions |
 | **Database Migrations** | Supabase SQL |
 | **Package Manager** | npm |
 
@@ -167,28 +174,29 @@ npm run build # ✅ Successful (warning: chunk >500kB — not critical)
    - Real-time sync status & results display
    - Error alerts with actionable messages
 
-6. **Setup Guide** (`GOOGLE_SHEETS_SETUP.md`) ✅
-   - Step-by-step Google Cloud API setup
-   - Sheet structure explanation
-   - Troubleshooting guide
-
 ---
 
-**TO USE (current two-step flow):**
-1. Follow [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) to get the Sheets API key; add `VITE_GOOGLE_SHEETS_API_KEY=...` to `.env` (used for the step-2 read).
-2. Ensure the `trigger-sheet-sync` Edge Function is deployed and its `APPSCRIPT_WEBHOOK_URL` / `APPSCRIPT_SECRET` are set (see [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md)).
-3. Go to `/admin` → "Google Sheets Sync" card → pick a mode (Current Month / By Term / Sync All) → **Run Sync**. Step 1 rebuilds the master tab via AppScript; step 2 pulls it into Supabase.
+**TO USE (current two-step flow):** the step-2 read no longer uses `VITE_GOOGLE_SHEETS_API_KEY` — it goes through a Service Account via the `pull-financial-data`/`pull-audit-data` Edge Functions. See [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md) for the authoritative flow.
+1. Ensure `GOOGLE_SA_KEY` is set as a Supabase secret and the master spreadsheet is shared with the Service Account.
+2. Ensure the `trigger-financial-sync` / `trigger-audit-sync` Edge Functions are deployed and their `APPSCRIPT_WEBHOOK_URL` / `APPSCRIPT_SECRET` are set.
+3. Go to `/admin` → "Google Sheets Sync" or "EFB Audit Sync" card → pick a mode (Current Month / By Term / Sync All, financial only) → **Run Sync**. Step 1 rebuilds the master tab via AppScript; step 2 pulls it into Supabase.
 
 ---
 
 ### ⏳ IN PROGRESS / PENDING
 
-#### Phase 1: Google Sheets Integration (CRITICAL)
-- [ ] Implement Google Sheets API client
-- [ ] Map sheet columns to dashboard metrics
-- [ ] Create real-time sync function
-- [ ] Populate initial data from sheet
-- [ ] Handle missing values & normalization
+> **Historical note (superseded):** the phased checklist below is the original 24 April 2026
+> plan. Phase 1 (Google Sheets Integration) and Phase 2 (initial data population) are **done** —
+> financial and audit data now sync live via the Edge Function pipeline (see the ✅ COMPLETED
+> section above and [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md)).
+> The remaining items are aspirational; trust the code over these checkboxes.
+
+#### Phase 1: Google Sheets Integration — ✅ COMPLETE (kept for history)
+- [x] Implement Google Sheets API client (now server-side via `pull-*-data` Edge Functions)
+- [x] Map sheet columns to dashboard metrics (`mapper.ts` exact `GFB_DICTIONARY`)
+- [x] Create sync function (`sync.ts` / `auditSync.ts`)
+- [x] Populate initial data from sheet
+- [x] Handle missing values & normalization
 
 #### Phase 2: Seed Data Initialization
 - [ ] Create seed script for 12 months × 11 entities
@@ -245,11 +253,9 @@ npm run build # ✅ Successful (warning: chunk >500kB — not critical)
 - Admin UI with sync button → results display
 - Complete setup guide
 
-**How to use:**
-1. Get Google Sheets API key (follow [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md))
-2. Add to `.env`: `VITE_GOOGLE_SHEETS_API_KEY=AIza...`
-3. Navigate to `/admin` → Click "Sync from Google Sheets"
-4. Watch real-time status & see inserted counts
+**How to use (superseded — see [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md) for the current flow):**
+1. Navigate to `/admin` → Click "Google Sheets Sync" or "EFB Audit Sync"
+2. Watch real-time status & see inserted counts
 
 **Your sheet:** https://docs.google.com/spreadsheets/d/11veq_V1Eh4ZZ7PxDKnrc0GAJrXP2HGHbenAIXcFDgw8/
 
@@ -379,7 +385,7 @@ If your Google Sheet isn't ready yet, I can create seed data instead:
 **Filters:**
 1. **Entity** — Dropdown (hidden for LC, not disabled)
 2. **Date Range** — From/To date pickers
-3. **Function** — Multi-select (iGV, iGT, oGV, oGT, ELD, EwA, BD)
+3. **Function** — Multi-select (`FUNCTION_CODES` from `src/lib/finance.ts`: iGV, iGT, oGV, oGT, ELD, EwA, Miscellaneous, NMF, Conference, National Conference Delegation, Project Management)
 4. **Term** — Dropdown (e.g., AM 2025 / PM 2025 / AM 2026)
 
 **Behavior:**

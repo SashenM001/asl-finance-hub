@@ -6,15 +6,19 @@
 `upsert(payload, { onConflict })`. The notes below are retained for historical context.
 **Scope:** Sync write phase only — does not affect correctness, only request count.
 
-## What the pattern is
+## What the pattern was (now resolved)
 
-Both sync paths upsert with a **delete-then-insert** strategy because the target tables have
-no unique constraint to `upsert(..., { onConflict })` on. The delete step runs **one HTTP
-request per unique `(entity_id, period_month)` pair** before a single bulk INSERT:
+> The description below is the **pre-fix** state, kept for context. As of 2026-06-29 all three
+> paths use `upsert(..., { onConflict })` (see the status banner above); the delete loops and the
+> line numbers below no longer match the code.
 
-- `src/integrations/googleSheets/auditSync.ts:166-178` — `audit_scores`
-- `src/integrations/googleSheets/sync.ts:340-343` — `revenue_streams`
-- `src/integrations/googleSheets/sync.ts:360-363` — `cost_breakdown`
+Both sync paths used to upsert with a **delete-then-insert** strategy because the target tables had
+no unique constraint to `upsert(..., { onConflict })` on. The delete step ran **one HTTP
+request per unique `(entity_id, period_month)` pair** before a single bulk INSERT, in:
+
+- `src/integrations/googleSheets/auditSync.ts` — `audit_scores`
+- `src/integrations/googleSheets/sync.ts` — `revenue_streams`
+- `src/integrations/googleSheets/sync.ts` — `cost_breakdown`
 
 Each `.delete().eq("entity_id", eid).eq("period_month", pm)` is a separate PostgREST round-trip.
 With ~10 LCs × a few months this is ~12–30 requests per table — small, but it scales O(pairs).

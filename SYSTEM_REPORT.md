@@ -47,13 +47,14 @@ graph TB
         Postgres["PostgreSQL Database<br/>9 Tables + RLS"]
     end
 
-    subgraph Edge ["Supabase Edge Function"]
-        Trigger["trigger-sheet-sync<br/>(JWT + mc_user check)"]
+    subgraph Edge ["Supabase Edge Functions"]
+        Trigger["trigger-financial-sync / trigger-audit-sync<br/>(JWT + mc_user check)"]
+        Pull["pull-financial-data / pull-audit-data<br/>(JWT + Service Account)"]
     end
 
     subgraph External ["External Data"]
         AppScript["Google AppScript<br/>doPost webhook"]
-        GSheets["Google Sheets<br/>MASTER_COMBINED_TALL"]
+        GSheets["Google Sheets<br/>MASTER_COMBINED_TALL / MASTER_AUDIT_TALL (private)"]
     end
 
     Login -->|signInWithPassword| AuthSvc
@@ -63,8 +64,10 @@ graph TB
     AppShell -->|① Admin: Run Sync + JWT| Trigger
     Trigger -->|② forward + secret| AppScript
     AppScript -->|rebuild master tab| GSheets
-    GSheets -->|③ Sheets API v4 read| Pages
-    Pages -->|④ aggregate + upsert| PostgREST
+    Pages -->|③ POST + JWT| Pull
+    Pull -->|SA OAuth read| GSheets
+    Pull -->|④ rows| Pages
+    Pages -->|⑤ aggregate + upsert| PostgREST
 ```
 
 > See [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md) for the
@@ -76,7 +79,7 @@ graph TB
 |----------|-----------|
 | **SPA (not SSR)** | Internal tool; no SEO needed. Simpler deployment. |
 | **Supabase RLS** | Row-Level Security policies at the database level — even if the UI is bypassed, data isolation holds. |
-| **Two-step server-gated sync** | Sync is a two-step flow: (1) the browser asks the `trigger-sheet-sync` Edge Function (JWT + `mc_user` gate) to run an AppScript webhook that rebuilds the `MASTER_COMBINED_TALL` tab; (2) the browser reads that tab via the public Sheets API and upserts to Postgres. The webhook URL + secret stay server-side; only the step-2 read uses a browser-exposed API key. |
+| **Two-step server-gated sync** | Sync is a two-step flow, run separately for financial and audit data: (1) the browser asks the `trigger-financial-sync` / `trigger-audit-sync` Edge Function (JWT + `mc_user` gate) to run an AppScript webhook that rebuilds the corresponding master tab; (2) the browser reads that tab via the matching `pull-financial-data` / `pull-audit-data` Edge Function, which authenticates as a Service Account since the master sheet is private. The webhook URL/secret and SA key all stay server-side — no browser-exposed API key is used. |
 | **Proxy-based Supabase client** | Lazy initialization avoids crashes if env vars are missing during build. |
 | **First-user-as-admin** | The `handle_new_user()` trigger auto-assigns `mc_user` role to the first signup, bootstrapping the system. |
 
@@ -111,12 +114,14 @@ Finance Dashboard/
 │   │   ├── KpiCard.tsx           # Reusable KPI metric card
 │   │   └── ui/                   # shadcn/ui primitives (15+ components)
 │   ├── hooks/
-│   │   └── useSheetSync.ts       # Custom hook for Google Sheets sync
+│   │   ├── useSheetSync.ts       # Financial Google Sheets sync hook
+│   │   └── useAuditSync.ts       # EFB audit sync hook
 │   ├── integrations/
 │   │   ├── googleSheets/
-│   │   │   ├── client.ts         # Google Sheets API HTTP client
-│   │   │   ├── mapper.ts         # GFB code classifier + LC mapper
-│   │   │   ├── sync.ts           # Sync orchestrator (aggregate + upsert)
+│   │   │   ├── client.ts         # Edge Function pull clients (financial + audit)
+│   │   │   ├── mapper.ts         # GFB_DICTIONARY classifier + LC mapper
+│   │   │   ├── sync.ts           # Financial orchestrator (aggregate + upsert)
+│   │   │   ├── auditSync.ts      # Audit orchestrator (upsert audit_scores)
 │   │   │   └── index.ts          # Public exports
 │   │   └── supabase/
 │   │       ├── client.ts         # Supabase JS client (lazy Proxy)
@@ -132,10 +137,10 @@ Finance Dashboard/
 │   │   ├── _app.tsx              # Auth guard + layout wrapper
 │   │   ├── _app.overview.tsx     # Global Overview (Home)
 │   │   ├── _app.lc.tsx           # LC Dashboard
-│   │   ├── _app.budget.tsx       # Budget vs Actual
-│   │   ├── _app.performance.tsx  # Performance Analysis
+│   │   ├── -_app.budget.tsx      # Budget vs Actual (DISABLED — '-' prefix, not routed)
+│   │   ├── -_app.performance.tsx # Performance Analysis (DISABLED — '-' prefix, not routed)
 │   │   ├── _app.audit.tsx        # EFB Audit Results
-│   │   ├── _app.review.tsx       # Monthly Review
+│   │   ├── -_app.review.tsx      # Monthly Review (DISABLED — '-' prefix, not routed)
 │   │   ├── _app.contacts.tsx     # Help & Contacts
 │   │   └── _app.admin.tsx        # Admin (MC only)
 │   ├── router.tsx                # TanStack Router config
@@ -232,22 +237,26 @@ erDiagram
 | `monthly_metrics` | ~245 | Aggregated monthly financial KPIs per entity |
 | `revenue_streams` | ~715 | Revenue by function code per entity per month |
 | `cost_breakdown` | ~453 | Cost by function code per entity per month |
-| `budget_actual` | 0 | Budget vs Actual data (awaiting data entry) |
-| `audit_scores` | 0 | EFB audit scores (awaiting data entry) |
-| `monthly_review` | 0 | Monthly review pass/fail records (awaiting data entry) |
+| `budget_actual` | 0 | Budget vs Actual data (awaiting data source; page disabled) |
+| `audit_scores` | populated | EFB audit scores — now synced live via the audit syncer (`trigger-audit-sync` → `pull-audit-data` → `syncAuditData`), ~10 LCs |
+| `monthly_review` | 0 | Monthly review pass/fail records (awaiting data source; page disabled) |
 
 ### Enums
 
 - **`app_role`**: `lc_user` | `mc_user` | `efb_user`
 - **`function_code`** (current frontend list, source of truth = `src/lib/finance.ts`):
   `iGV` | `iGT` | `oGV` | `oGT` | `ELD` | `EwA` | `Miscellaneous` | `NMF` | `Conference` |
-  `National Conference Delegation`
+  `National Conference Delegation` | `Project Management`
 
 > [!WARNING]
 > **Enum drift:** the original migration defined `function_code` as only 7 values
-> (`iGV, iGT, oGV, oGT, ELD, EwA, BD`). The 10-value list above is newer; the live Supabase
-> enum must have been altered out-of-band. Treat `src/lib/finance.ts` as the UI source of
-> truth and verify the live DB enum before relying on the migration file.
+> (`iGV, iGT, oGV, oGT, ELD, EwA, BD`). The live Supabase enum (see
+> `src/integrations/supabase/types.ts`, regenerated via `supabase gen types`) now has 16
+> values: the 11-value frontend list above, plus legacy unused values `BD`, `iGTa`, `iGTe`,
+> `oGTa`, `oGTe` left over from schema evolution. `Project Management` was added
+> 2026-07-01 (migration `20260701000000_add_project_management_function_code.sql`) to split
+> Project Management income/costs out of `Miscellaneous`. Treat `src/lib/finance.ts` as the
+> UI source of truth and `types.ts` as the source of truth for the live DB enum.
 
 ### Indexes
 
@@ -304,11 +313,11 @@ graph TD
 
 ```mermaid
 flowchart LR
-    U["Admin UI<br/>useSheetSync"] -->|① POST mode/term/month + JWT| EF["Edge Function<br/>trigger-sheet-sync<br/>JWT + mc_user gate"]
+    U["Admin UI<br/>useSheetSync"] -->|① POST mode/term/month + JWT| EF["Edge Function<br/>trigger-financial-sync<br/>JWT + mc_user gate"]
     EF -->|② forward + secret| AS["AppScript doPost<br/>rebuild master tab"]
     AS --> GS["Google Sheet<br/>MASTER_COMBINED_TALL"]
-    GS -->|③ SA OAuth read| PF["Edge Function<br/>pull-sheet-data<br/>Service Account auth"]
-    PF -->|④ {ok,values}| B["client.ts<br/>fetchSheetData()"]
+    GS -->|③ SA OAuth read| PF["Edge Function<br/>pull-financial-data<br/>Service Account auth"]
+    PF -->|④ {ok,values}| B["client.ts<br/>fetchFinancialData()"]
     B --> C["mapper.ts<br/>parseRow() → GFB_DICTIONARY<br/>LC_CODE_TO_NAME"]
     C --> D["sync.ts<br/>group by (entity, month)<br/>aggregate, derive NPM/liquidity"]
     D -->|④ upsert via PostgREST| E["Supabase DB<br/>monthly_metrics<br/>revenue_streams<br/>cost_breakdown"]
@@ -350,8 +359,8 @@ flowchart LR
 ### Function Code Extraction
 
 The dictionary assigns each revenue/cost code a `FunctionCode` directly. The function set is
-the 10-value list in §3 (`iGV, iGT, oGV, oGT, ELD, EwA, Miscellaneous, NMF, Conference,
-National Conference Delegation`) — **not** the old 7-value keyword scheme. See
+the 11-value list in §3 (`iGV, iGT, oGV, oGT, ELD, EwA, Miscellaneous, NMF, Conference,
+National Conference Delegation, Project Management`) — **not** the old 7-value keyword scheme. See
 [`src/integrations/googleSheets/mapper.ts`](src/integrations/googleSheets/mapper.ts) for the
 full `GFB_DICTIONARY`.
 
@@ -421,6 +430,10 @@ full `GFB_DICTIONARY`.
 
 ### Page 4: Budget vs Actual
 
+> ⚠️ **Page currently DISABLED** — route file is `-_app.budget.tsx` (`-` prefix ⇒ not routed)
+> and its nav link is commented out. The inventory below reflects the built-but-unrouted page;
+> the `budget_actual` table is still empty (no EFB data source yet).
+
 | Requirement | Status | Notes |
 |------------|--------|-------|
 | Variance table (Budget, Actual, Variance, %) | ✅ | Table with color-coded status badges |
@@ -433,6 +446,9 @@ full `GFB_DICTIONARY`.
 > The `budget_actual` table is **empty**. Budget data is not present in the Google Sheet — it needs to be entered manually through the Supabase Dashboard or a future data entry UI.
 
 ### Page 5: Performance Analysis
+
+> ⚠️ **Page currently DISABLED** — route file is `-_app.performance.tsx` (`-` prefix ⇒ not routed)
+> and its nav link is commented out. The inventory below reflects the built-but-unrouted page.
 
 | Requirement | Status | Notes |
 |------------|--------|-------|
@@ -458,6 +474,10 @@ full `GFB_DICTIONARY`.
 | Specific scoring columns (ELD, Posting Accuracy, etc.) | ⚠️ | **Not implemented** — single `score` field vs multi-criteria |
 
 ### Page 7: Monthly Review
+
+> ⚠️ **Page currently DISABLED** — route file is `-_app.review.tsx` (`-` prefix ⇒ not routed)
+> and its nav link is commented out. The inventory below reflects the built-but-unrouted page;
+> the `monthly_review` table is still empty.
 
 | Requirement | Status | Notes |
 |------------|--------|-------|
@@ -531,10 +551,10 @@ full `GFB_DICTIONARY`.
 
 | # | Issue | Impact |
 |---|-------|--------|
-| 3 | `budget_actual`, `audit_scores`, `monthly_review` tables are empty | Budget, Audit, and Review pages show "No data" |
+| 3 | `budget_actual`, `monthly_review` tables are empty (`audit_scores` now populated via the live audit sync) | Budget & Review pages have no data (both are disabled anyway); Audit page is live |
 | 4 | Rankings, Health Index, OD Score are always 0 | Home page shows #0 for rankings — needs manual data or AI formula |
 | 5 | No mobile hamburger menu | Sidebar hidden on mobile, no way to navigate |
-| 6 | ~~Google Sheets sync is partly client-side~~ ✅ **Resolved** | Both steps are now server-gated: step 1 via `trigger-sheet-sync` (JWT + `mc_user`), step 2 via `pull-sheet-data` (JWT + Service Account — master sheet is private). `VITE_GOOGLE_SHEETS_API_KEY` is no longer on the active sync path. |
+| 6 | ~~Google Sheets sync is partly client-side~~ ✅ **Resolved** | Both steps are now server-gated, with financial and audit fully split into separate Edge Function pairs: step 1 via `trigger-financial-sync` / `trigger-audit-sync` (JWT + `mc_user`), step 2 via `pull-financial-data` / `pull-audit-data` (JWT + Service Account — master sheet is private). `VITE_GOOGLE_SHEETS_API_KEY` is no longer on the active sync path. |
 
 ### Low
 
@@ -563,7 +583,7 @@ full `GFB_DICTIONARY`.
 
 | Task | Effort | Risk Addressed |
 |------|--------|---------------|
-| **Finish moving sync server-side** | ✅ Done | Both steps are now server-gated. Step 1: `trigger-sheet-sync` Edge Function (JWT + `mc_user`). Step 2: `pull-sheet-data` Edge Function (JWT + Service Account SA key). Master sheet is private. Remaining optional item: schedule via cron. |
+| **Finish moving sync server-side** | ✅ Done | Both steps are now server-gated, split into financial/audit Edge Function pairs. Step 1: `trigger-financial-sync` / `trigger-audit-sync` (JWT + `mc_user`). Step 2: `pull-financial-data` / `pull-audit-data` (JWT + Service Account SA key). Master sheet is private. Remaining optional item: schedule via cron. |
 | **Rate limiting on auth** | 1 day | Prevent brute-force attacks on login. Configure Supabase Auth rate limits |
 | **Fix admin `beforeLoad`** | 0.5 day | Replace with component-level guard like `_app.tsx` |
 | **Audit logging** | 2 days | Log all role changes, entity assignments, and data modifications with timestamps and actor |
@@ -636,7 +656,7 @@ full `GFB_DICTIONARY`.
 
 | Concern | Current State | Recommendation |
 |---------|--------------|----------------|
-| Google Sheets API key in bundle | ✅ **No longer on active sync path** — `VITE_GOOGLE_SHEETS_API_KEY` remains in `client.ts` for `fetchSheetDataMultiple`/`getSheetMetadata` but neither is called by the financial or audit sync. Master-sheet read now goes through `pull-sheet-data` Edge Function with Service Account. | Remove the env var if `fetchSheetDataMultiple` / `getSheetMetadata` are confirmed unused. |
+| Google Sheets API key in bundle | ✅ **No longer on active sync path** — `VITE_GOOGLE_SHEETS_API_KEY` remains in `client.ts` for `fetchSheetDataMultiple`/`getSheetMetadata` but neither is called by the financial or audit sync. Master-sheet reads now go through the `pull-financial-data` / `pull-audit-data` Edge Functions with a Service Account. | Remove the env var if `fetchSheetDataMultiple` / `getSheetMetadata` are confirmed unused. |
 | Service Role key | ✅ Not in client bundle (no `VITE_` prefix) | Keep it this way |
 | Supabase publishable key | ✅ Safe to expose (designed for client use) | OK |
 | Local storage session tokens | ✅ Standard Supabase behavior | OK |

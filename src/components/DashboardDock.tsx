@@ -49,14 +49,9 @@ function SortableDockItem({
   onClick,
   onRemove,
 }: SortableDockItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: view.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: view.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -79,11 +74,18 @@ function SortableDockItem({
         <GripVertical className="h-3 w-3" />
       </div>
 
-      <div className="flex flex-col items-center justify-center select-none cursor-pointer w-full px-1 overflow-hidden" onClick={onClick}>
-        <span className={`text-xs font-medium truncate w-full text-center transition-colors duration-300 text-white`}>
+      <div
+        className="flex flex-col items-center justify-center select-none cursor-pointer w-full px-1 overflow-hidden"
+        onClick={onClick}
+      >
+        <span
+          className={`text-xs font-medium truncate w-full text-center transition-colors duration-300 text-white`}
+        >
           {entityName}
         </span>
-        <span className={`text-[9px] truncate w-full text-center transition-colors duration-300 text-white/70`}>
+        <span
+          className={`text-[9px] truncate w-full text-center transition-colors duration-300 text-white/70`}
+        >
           {dateRange}
         </span>
       </div>
@@ -108,13 +110,17 @@ function SortableDockItem({
 export function DashboardDock({ views, onReorder, onRemove, activeMatrixId }: DashboardDockProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [scrollMetrics, setScrollMetrics] = useState({ scrollLeft: 0, scrollWidth: 0, clientWidth: 0 });
+  const [scrollMetrics, setScrollMetrics] = useState({
+    scrollLeft: 0,
+    scrollWidth: 0,
+    clientWidth: 0,
+  });
   const scrollbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: any) => setScrollMetrics(e.detail);
-    window.addEventListener('pnl-scroll-metrics', handler);
-    return () => window.removeEventListener('pnl-scroll-metrics', handler);
+    window.addEventListener("pnl-scroll-metrics", handler);
+    return () => window.removeEventListener("pnl-scroll-metrics", handler);
   }, []);
 
   const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -123,21 +129,27 @@ export function DashboardDock({ views, onReorder, onRemove, activeMatrixId }: Da
     const clickX = e.clientX - rect.left;
     const clickPercentage = clickX / rect.width;
     const newScrollLeft = clickPercentage * scrollMetrics.scrollWidth;
-    const centeredScrollLeft = newScrollLeft - (scrollMetrics.clientWidth / 2);
+    const centeredScrollLeft = newScrollLeft - scrollMetrics.clientWidth / 2;
 
-    window.dispatchEvent(new CustomEvent('pnl-scroll-to', { detail: centeredScrollLeft }));
+    window.dispatchEvent(new CustomEvent("pnl-scroll-to", { detail: centeredScrollLeft }));
   };
 
   const showIndicator = scrollMetrics.scrollWidth > scrollMetrics.clientWidth;
-  const widthPercentage = scrollMetrics.scrollWidth > 0 ? (scrollMetrics.clientWidth / scrollMetrics.scrollWidth) * 100 : 0;
-  const leftPercentage = scrollMetrics.scrollWidth > 0 ? (scrollMetrics.scrollLeft / scrollMetrics.scrollWidth) * 100 : 0;
+  const widthPercentage =
+    scrollMetrics.scrollWidth > 0
+      ? (scrollMetrics.clientWidth / scrollMetrics.scrollWidth) * 100
+      : 0;
+  const leftPercentage =
+    scrollMetrics.scrollWidth > 0
+      ? (scrollMetrics.scrollLeft / scrollMetrics.scrollWidth) * 100
+      : 0;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 5, // enable dragging only after moving 5px (keeps normal clicks functional)
       },
-    })
+    }),
   );
 
   useEffect(() => {
@@ -215,27 +227,22 @@ export function DashboardDock({ views, onReorder, onRemove, activeMatrixId }: Da
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <div className="fixed bottom-1.5 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-1.5 w-max max-w-[90vw] bg-white/50 backdrop-blur-xl p-1.5 rounded-[1.5rem] shadow-[0_4px_16px_rgba(0,0,0,0.1)] border border-white/60">
         <div className="flex flex-nowrap items-center gap-1 bg-[#037EF3] text-white rounded-full px-3 py-1.5 h-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full overflow-x-auto">
-          <SortableContext
-            items={views.map((v) => v.id)}
-            strategy={horizontalListSortingStrategy}
-          >
+          <SortableContext items={views.map((v) => v.id)} strategy={horizontalListSortingStrategy}>
             {views.map((view) => {
               const isActive = activeMatrixId ? activeMatrixId === view.id : activeId === view.id;
               const matchedEntity = entities.find((e) => e.id === view.entity);
 
               // Map local state to requested display keys
-              const rawEntityName = view.entity === "Select LC" ? "Unassigned LC" : (matchedEntity?.name || "Unknown");
+              const rawEntityName =
+                view.entity === "Select LC" ? "Unassigned LC" : matchedEntity?.name || "Unknown";
               const entityName = formatEntityName(rawEntityName);
-              const dateRange = view.from && view.to
-                ? `${formatDate(view.from)} - ${formatDate(view.to)}`
-                : view.term || "No Date";
+              const dateRange =
+                view.from && view.to
+                  ? `${formatDate(view.from)} - ${formatDate(view.to)}`
+                  : view.term || "No Date";
 
               return (
                 <SortableDockItem
