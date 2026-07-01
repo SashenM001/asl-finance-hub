@@ -14,7 +14,7 @@ import {
 } from "@/lib/finance";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, startOfMonth, subMonths, endOfMonth } from "date-fns";
 import {
   Banknote,
   Wallet,
@@ -155,6 +155,7 @@ function DashboardSplit({
     to: config.to,
   }));
   const [metrics, setMetrics] = useState<MonthlyMetric[]>([]);
+  const [mocrMetrics, setMocrMetrics] = useState<MonthlyMetric[]>([]);
   const [revenue, setRevenue] = useState<FnRow[]>([]);
   const [costs, setCosts] = useState<FnRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,6 +209,31 @@ function DashboardSplit({
       setLoading(false);
     })();
   }, [filters, profile?.entity_id, isLC, isMC, isEFB]);
+
+  // MoCR denominator needs a true trailing-12-calendar-month window anchored on
+  // filters.to, independent of the filter's from/to range. Fetch it separately.
+  useEffect(() => {
+    const lockEntity = isLC && !isMC && !isEFB;
+    const entityId = lockEntity
+      ? profile?.entity_id
+      : filters.entityId !== "all"
+        ? filters.entityId
+        : null;
+    const ids = entityId ? [entityId] : undefined;
+    // Denominator = the 12 months BEFORE the anchor (excluding it); numerator = the
+    // anchor month itself. Fetch from 12 months back through the anchor month inclusive.
+    const anchorMonth = startOfMonth(parseISO(filters.to));
+    const windowStart = startOfMonth(subMonths(anchorMonth, 12));
+    const windowEnd = endOfMonth(anchorMonth);
+    (async () => {
+      const m = await fetchMetrics(
+        ids,
+        format(windowStart, "yyyy-MM-dd"),
+        format(windowEnd, "yyyy-MM-dd"),
+      );
+      setMocrMetrics(m);
+    })();
+  }, [filters.to, filters.entityId, profile?.entity_id, isLC, isMC, isEFB]);
 
   const handleFilterChange = (newFilters: FilterState) => {
     setFilters(newFilters);
@@ -354,18 +380,34 @@ function DashboardSplit({
   // petty_cash (8502) and reserves (8602) are stored as separate DB columns to allow precise numerator isolation.
   // Total Assets on the frontend sums all five buckets (assets + bank_balance + receivables + petty_cash + reserves)
   // without any data duplication in the backend.
+  // Denominator: the 12 calendar months BEFORE the month filters.to falls in, excluding
+  // the anchor month itself (Dec anchor → Dec-prev-year … Nov). Rows are summed directly,
+  // so "all entities" sums total_cost across every entity per month automatically. ÷12.
+  // Numerator: the anchor month's balance (summed across entities for "all").
   const mocr = useMemo(() => {
-    if (!latest) return null;
-    const numerator =
-      (latest.bank_balance ?? 0) +
-      (latest.petty_cash ?? 0) +
-      (latest.reserves ?? 0) -
-      (latest.liabilities ?? 0);
-    const last12 = metrics.slice(-12);
-    const totalCost12m = last12.reduce((s, m) => s + (m.total_cost ?? 0), 0);
-    const avgMonthlyCost = last12.length > 0 ? totalCost12m / last12.length : 0;
-    return avgMonthlyCost > 0 ? +(numerator / avgMonthlyCost).toFixed(2) : null;
-  }, [metrics, latest]);
+    if (!mocrMetrics.length) return null;
+    const anchorMonth = startOfMonth(parseISO(filters.to));
+    const windowStart = startOfMonth(subMonths(anchorMonth, 12));
+    const anchorKey = format(anchorMonth, "yyyy-MM");
+
+    let totalCost12m = 0;
+    let numerator = 0;
+    let hasAnchorRow = false;
+    for (const m of mocrMetrics) {
+      const mMonth = startOfMonth(parseISO(m.period_month));
+      if (mMonth >= windowStart && mMonth < anchorMonth) {
+        totalCost12m += m.total_cost ?? 0;
+      }
+      if (format(mMonth, "yyyy-MM") === anchorKey) {
+        hasAnchorRow = true;
+        numerator +=
+          (m.bank_balance ?? 0) + (m.petty_cash ?? 0) + (m.reserves ?? 0) - (m.liabilities ?? 0);
+      }
+    }
+    const avgMonthlyCost = totalCost12m / 12; // always ÷12
+    if (!hasAnchorRow || avgMonthlyCost <= 0) return null;
+    return +(numerator / avgMonthlyCost).toFixed(2);
+  }, [mocrMetrics, filters.to]);
 
   const isLoading = loading;
   const data = metrics;

@@ -30,7 +30,7 @@ type YearMap = Record<string, number>;
 export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
   const availableYears = useMemo(() => {
     const years = new Set<string>();
-    [...revenue, ...costs].forEach(r => {
+    [...revenue, ...costs].forEach((r) => {
       if (r.period_month) years.add(r.period_month.substring(0, 4));
     });
     return Array.from(years).sort();
@@ -40,7 +40,7 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
 
   useEffect(() => {
     // Initialize with all available years if empty, or keep existing selection valid
-    setSelectedYears(prev => {
+    setSelectedYears((prev) => {
       if (prev.length === 0 && availableYears.length > 0) return [...availableYears];
       return prev;
     });
@@ -49,27 +49,31 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
   const data = useMemo(() => {
     const getRevByYear = (fnCode: string): YearMap => {
       const res: YearMap = {};
-      selectedYears.forEach(y => (res[y] = 0));
-      revenue.filter((r) => r.function_code === fnCode).forEach(r => {
-        const y = r.period_month.substring(0, 4);
-        if (selectedYears.includes(y)) res[y] += Number(r.amount);
-      });
+      selectedYears.forEach((y) => (res[y] = 0));
+      revenue
+        .filter((r) => r.function_code === fnCode)
+        .forEach((r) => {
+          const y = r.period_month.substring(0, 4);
+          if (selectedYears.includes(y)) res[y] += Number(r.amount);
+        });
       return res;
     };
 
     const getCostByYear = (fnCode: string): YearMap => {
       const res: YearMap = {};
-      selectedYears.forEach(y => (res[y] = 0));
-      costs.filter((c) => c.function_code === fnCode).forEach(c => {
-        const y = c.period_month.substring(0, 4);
-        if (selectedYears.includes(y)) res[y] += Number(c.amount);
-      });
+      selectedYears.forEach((y) => (res[y] = 0));
+      costs
+        .filter((c) => c.function_code === fnCode)
+        .forEach((c) => {
+          const y = c.period_month.substring(0, 4);
+          if (selectedYears.includes(y)) res[y] += Number(c.amount);
+        });
       return res;
     };
 
     const sumMaps = (...maps: YearMap[]): YearMap => {
       const res: YearMap = {};
-      selectedYears.forEach(y => {
+      selectedYears.forEach((y) => {
         res[y] = maps.reduce((sum, m) => sum + (m[y] || 0), 0);
       });
       return res;
@@ -77,7 +81,7 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
 
     const diffMaps = (map1: YearMap, map2: YearMap): YearMap => {
       const res: YearMap = {};
-      selectedYears.forEach(y => {
+      selectedYears.forEach((y) => {
         res[y] = (map1[y] || 0) - (map2[y] || 0);
       });
       return res;
@@ -103,7 +107,7 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
     const confIncome = getRevByYear("Conference");
     const pmIncome = getRevByYear("Project Management");
     const miscIncome = getRevByYear("Miscellaneous");
-    
+
     const totalIncome = sumMaps(eldIncome, ewaIncome, confIncome, pmIncome, miscIncome);
 
     const ewaExpenses = getCostByYear("EwA");
@@ -113,7 +117,15 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
     const pmExpenses = getCostByYear("Project Management");
     const miscExpenses = getCostByYear("Miscellaneous");
 
-    const totalExpenses = sumMaps(eldExpenses, ewaExpenses, confExpenses, natConfExpenses, nmfExpenses, pmExpenses, miscExpenses);
+    const totalExpenses = sumMaps(
+      eldExpenses,
+      ewaExpenses,
+      confExpenses,
+      natConfExpenses,
+      nmfExpenses,
+      pmExpenses,
+      miscExpenses,
+    );
 
     const netProfitLoss = diffMaps(totalIncome, totalExpenses);
 
@@ -141,20 +153,24 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
       "Project management expenses": pmExpenses,
       "Miscellaneous expenses": miscExpenses,
       "Total expenses": totalExpenses,
-      "Net Profit/Loss": netProfitLoss
+      "Net Profit/Loss": netProfitLoss,
     };
   }, [revenue, costs, selectedYears]);
 
   const toggleYear = (year: string) => {
-    setSelectedYears(prev => {
-      if (prev.includes(year)) return prev.filter(y => y !== year);
+    setSelectedYears((prev) => {
+      if (prev.includes(year)) return prev.filter((y) => y !== year);
       return [...prev, year].sort();
     });
   };
 
-  const renderRow = (label: string, styleClass: string = "hover:bg-muted/30", valClass: string = "") => {
+  const renderRow = (
+    label: string,
+    styleClass: string = "hover:bg-muted/30",
+    valClass: string = "",
+  ) => {
     const map = data[label as keyof typeof data] as YearMap;
-    
+
     const getCellColor = (val: number) => {
       if (label === "Gross Profit/Loss" || label === "Net Profit/Loss") {
         return val >= 0 ? "text-green-600" : "text-red-600";
@@ -167,9 +183,15 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
 
     return (
       <tr className={`${styleClass} ${textSize}`}>
-        <td className={`${cellPadding} ${styleClass.includes("bg-") ? "pl-2 md:pl-4" : "pl-4 md:pl-8"}`}>{label}</td>
-        {selectedYears.map(y => (
-          <td key={y} className={`${cellPadding} text-right ${getCellColor(map[y] || 0)}`}>{fmtCurrency(map[y])}</td>
+        <td
+          className={`${cellPadding} ${styleClass.includes("bg-") ? "pl-2 md:pl-4" : "pl-4 md:pl-8"}`}
+        >
+          {label}
+        </td>
+        {selectedYears.map((y) => (
+          <td key={y} className={`${cellPadding} text-right ${getCellColor(map[y] || 0)}`}>
+            {fmtCurrency(map[y])}
+          </td>
         ))}
       </tr>
     );
@@ -181,10 +203,10 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
       {availableYears.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 bg-muted/30 p-3 rounded-md border">
           <span className="text-sm font-medium text-muted-foreground">Compare Years:</span>
-          {availableYears.map(year => (
+          {availableYears.map((year) => (
             <label key={year} className="flex items-center gap-1.5 cursor-pointer text-sm">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 className="rounded border-input text-primary focus:ring-primary"
                 checked={selectedYears.includes(year)}
                 onChange={() => toggleYear(year)}
@@ -200,9 +222,18 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
         <table className="min-w-full text-left text-muted-foreground">
           <thead className="text-xs uppercase bg-muted/50 text-muted-foreground border-b">
             <tr>
-              <th className={`px-4 py-3 font-semibold text-foreground whitespace-nowrap min-w-[200px]`}>Profit & Loss Statement</th>
-              {selectedYears.map(y => (
-                <th key={y} className={`px-4 py-3 text-right font-semibold text-foreground whitespace-nowrap ${isSplit ? 'w-24' : 'w-32'}`}>{y}</th>
+              <th
+                className={`px-4 py-3 font-semibold text-foreground whitespace-nowrap min-w-[200px]`}
+              >
+                Profit & Loss Statement
+              </th>
+              {selectedYears.map((y) => (
+                <th
+                  key={y}
+                  className={`px-4 py-3 text-right font-semibold text-foreground whitespace-nowrap ${isSplit ? "w-24" : "w-32"}`}
+                >
+                  {y}
+                </th>
               ))}
             </tr>
           </thead>
@@ -219,10 +250,18 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
             {renderRow("iGT expenses")}
             {renderRow("oGV expenses")}
             {renderRow("oGT expenses")}
-            {renderRow("ELD expenses", "bg-muted/10 font-medium text-foreground border-b-2", "text-red-600")}
-            
+            {renderRow(
+              "ELD expenses",
+              "bg-muted/10 font-medium text-foreground border-b-2",
+              "text-red-600",
+            )}
+
             {/* Gross Profit/Loss */}
-            {renderRow("Gross Profit/Loss", "bg-muted/30 font-semibold text-foreground border-b-2 text-base", "")}
+            {renderRow(
+              "Gross Profit/Loss",
+              "bg-muted/30 font-semibold text-foreground border-b-2 text-base",
+              "",
+            )}
 
             {/* Total Income Section */}
             {renderRow("ELD income")}
@@ -230,7 +269,11 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
             {renderRow("Conference income")}
             {renderRow("Project management income")}
             {renderRow("Miscellaneous income")}
-            {renderRow("Total income", "bg-muted/10 font-medium text-foreground border-b-2", "text-green-600")}
+            {renderRow(
+              "Total income",
+              "bg-muted/10 font-medium text-foreground border-b-2",
+              "text-green-600",
+            )}
 
             {/* Total Expenses Section */}
             {renderRow("ELD expenses")}
@@ -240,7 +283,11 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
             {renderRow("NMF expenses")}
             {renderRow("Project management expenses")}
             {renderRow("Miscellaneous expenses")}
-            {renderRow("Total expenses", "bg-muted/10 font-medium text-foreground border-b-2", "text-red-600")}
+            {renderRow(
+              "Total expenses",
+              "bg-muted/10 font-medium text-foreground border-b-2",
+              "text-red-600",
+            )}
 
             {/* Net Profit/Loss */}
             {renderRow("Net Profit/Loss", "bg-primary/10 font-bold text-foreground text-base", "")}

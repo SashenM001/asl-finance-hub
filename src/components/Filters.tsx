@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { fetchEntities, type Entity, FUNCTION_CODES, type FunctionCode } from "@/lib/finance";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
@@ -63,13 +69,14 @@ export function Filters({
   if (showFunctionFilter) visibleCols++;
   if (showTermFilter) visibleCols++;
 
-  const colsClass = visibleCols === 1
-    ? "md:grid-cols-1 max-w-xs"
-    : visibleCols === 2
-    ? "md:grid-cols-2 max-w-md"
-    : visibleCols === 3
-    ? "md:grid-cols-3 max-w-lg"
-    : "md:grid-cols-5";
+  const colsClass =
+    visibleCols === 1
+      ? "md:grid-cols-1 max-w-xs"
+      : visibleCols === 2
+        ? "md:grid-cols-2 max-w-md"
+        : visibleCols === 3
+          ? "md:grid-cols-3 max-w-lg"
+          : "md:grid-cols-5";
 
   return (
     <div className={`grid gap-3 rounded-lg border bg-card p-4 ${colsClass}`}>
@@ -77,10 +84,16 @@ export function Filters({
         <div className="space-y-1">
           <Label className="text-xs">Entity</Label>
           <Select value={value.entityId} onValueChange={(v) => onChange({ ...value, entityId: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All entities</SelectItem>
-              {entities.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+              {entities.map((e) => (
+                <SelectItem key={e.id} value={e.id}>
+                  {e.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -89,23 +102,44 @@ export function Filters({
         <>
           <div className="space-y-1">
             <Label className="text-xs">From</Label>
-            <Input type="date" min={minDate} max={maxDate} value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} />
+            <Input
+              type="date"
+              min={minDate}
+              max={maxDate}
+              value={value.from}
+              onChange={(e) => onChange({ ...value, from: e.target.value })}
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">To</Label>
-            <Input type="date" min={minDate} max={maxDate} value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} />
+            <Input
+              type="date"
+              min={minDate}
+              max={maxDate}
+              value={value.to}
+              onChange={(e) => onChange({ ...value, to: e.target.value })}
+            />
           </div>
         </>
       )}
-      
+
       {showFunctionFilter && (
         <div className="space-y-1">
           <Label className="text-xs">Function</Label>
-          <Select value={value.functionCode} onValueChange={(v) => onChange({ ...value, functionCode: v as FunctionCode | "all" })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select
+            value={value.functionCode}
+            onValueChange={(v) => onChange({ ...value, functionCode: v as FunctionCode | "all" })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All functions</SelectItem>
-              {FUNCTION_CODES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+              {FUNCTION_CODES.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {f}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -114,7 +148,9 @@ export function Filters({
         <div className="space-y-1">
           <Label className="text-xs">Term</Label>
           <Select value={value.term} onValueChange={(v) => onChange({ ...value, term: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All terms</SelectItem>
               <SelectItem value="24-25">24-25</SelectItem>

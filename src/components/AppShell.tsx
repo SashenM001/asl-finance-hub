@@ -1,7 +1,17 @@
 import { Link, Outlet, useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Building2, Target, TrendingUp, ShieldCheck, ClipboardCheck, Users, LogOut, Wallet } from "lucide-react";
+import {
+  LayoutDashboard,
+  Building2,
+  Target,
+  TrendingUp,
+  ShieldCheck,
+  ClipboardCheck,
+  Users,
+  LogOut,
+  Wallet,
+} from "lucide-react";
 
 const NAV = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
@@ -27,7 +37,11 @@ export function AppShell() {
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r bg-card md:flex">
         <div className="flex h-16 items-center gap-2 border-b px-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg p-1">
-            <img src="/AIESEC-Human-White.png" alt="AIESEC Logo" className="h-full w-full object-contain" />
+            <img
+              src="/AIESEC-Human-White.png"
+              alt="AIESEC Logo"
+              className="h-full w-full object-contain"
+            />
           </div>
           <div>
             <div className="text-sm font-semibold leading-tight">ASL Finance Dashboard</div>
@@ -42,7 +56,10 @@ export function AppShell() {
                 key={item.to}
                 to={item.to}
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                activeProps={{ className: "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium bg-primary/10 text-primary" }}
+                activeProps={{
+                  className:
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium bg-primary/10 text-primary",
+                }}
                 activeOptions={{ exact: item.to === "/" }}
               >
                 <Icon className="h-4 w-4" />
@@ -54,7 +71,10 @@ export function AppShell() {
             <Link
               to="/admin"
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              activeProps={{ className: "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium bg-primary/10 text-primary" }}
+              activeProps={{
+                className:
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium bg-primary/10 text-primary",
+              }}
             >
               <ShieldCheck className="h-4 w-4" />
               Admin
@@ -74,11 +94,14 @@ export function AppShell() {
 
       <div className="md:pl-60">
         <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-8">
-          <h1 className="text-lg font-semibold"></h1>  {/*Yes, keep this. trust me*/ }
+          <h1 className="text-lg font-semibold"></h1> {/*Yes, keep this. trust me*/}
           <div className="text-xs text-muted-foreground">
             {roles.includes("mc_user") && "National view"}
             {roles.includes("efb_user") && !roles.includes("mc_user") && "Audit (read-only)"}
-            {roles.includes("lc_user") && !roles.includes("mc_user") && !roles.includes("efb_user") && "Local Committee view"}
+            {roles.includes("lc_user") &&
+              !roles.includes("mc_user") &&
+              !roles.includes("efb_user") &&
+              "Local Committee view"}
           </div>
         </header>
         <main className="p-4 md:p-8">

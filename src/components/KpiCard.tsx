@@ -28,12 +28,16 @@ export function KpiCard({
     <Card className={`overflow-hidden ${className || ""}`}>
       <CardContent className="flex items-start justify-between gap-2 p-4">
         <div className="min-w-0 flex-1 space-y-0.5">
-          <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+          <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+          </div>
           <div className="text-sm font-bold leading-snug">{value}</div>
           {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
         </div>
         {icon && (
-          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${accentMap[accent]}`}>
+          <div
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${accentMap[accent]}`}
+          >
             {icon}
           </div>
         )}
