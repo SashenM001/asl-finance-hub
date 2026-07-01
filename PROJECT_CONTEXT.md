@@ -121,7 +121,7 @@ can_read_entity(_user_id, _entity_id) → BOOLEAN
 | **Backend** | Self-managed Supabase (Postgres + RLS + Auth + Edge Functions) — *migrated off Lovable-managed Supabase* |
 | **Frontend** | Vite + TanStack Start, React 19, TypeScript |
 | **UI Components** | Radix UI / shadcn/ui, Recharts (charts) |
-| **External sync** | Google Sheets API v4 + a Google AppScript webhook, gated by the `trigger-sheet-sync` Edge Function |
+| **External sync** | Google Sheets API v4 + a Google AppScript webhook, gated by the `trigger-financial-sync` / `trigger-audit-sync` Edge Functions |
 | **Database Migrations** | Supabase SQL |
 | **Package Manager** | npm |
 
@@ -168,17 +168,12 @@ npm run build # ✅ Successful (warning: chunk >500kB — not critical)
    - Real-time sync status & results display
    - Error alerts with actionable messages
 
-6. **Setup Guide** (`GOOGLE_SHEETS_SETUP.md`) ✅
-   - Step-by-step Google Cloud API setup
-   - Sheet structure explanation
-   - Troubleshooting guide
-
 ---
 
-**TO USE (current two-step flow):**
-1. Follow [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) to get the Sheets API key; add `VITE_GOOGLE_SHEETS_API_KEY=...` to `.env` (used for the step-2 read).
-2. Ensure the `trigger-sheet-sync` Edge Function is deployed and its `APPSCRIPT_WEBHOOK_URL` / `APPSCRIPT_SECRET` are set (see [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md)).
-3. Go to `/admin` → "Google Sheets Sync" card → pick a mode (Current Month / By Term / Sync All) → **Run Sync**. Step 1 rebuilds the master tab via AppScript; step 2 pulls it into Supabase.
+**TO USE (current two-step flow):** the step-2 read no longer uses `VITE_GOOGLE_SHEETS_API_KEY` — it goes through a Service Account via the `pull-financial-data`/`pull-audit-data` Edge Functions. See [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md) for the authoritative flow.
+1. Ensure `GOOGLE_SA_KEY` is set as a Supabase secret and the master spreadsheet is shared with the Service Account.
+2. Ensure the `trigger-financial-sync` / `trigger-audit-sync` Edge Functions are deployed and their `APPSCRIPT_WEBHOOK_URL` / `APPSCRIPT_SECRET` are set.
+3. Go to `/admin` → "Google Sheets Sync" or "EFB Audit Sync" card → pick a mode (Current Month / By Term / Sync All, financial only) → **Run Sync**. Step 1 rebuilds the master tab via AppScript; step 2 pulls it into Supabase.
 
 ---
 
@@ -246,11 +241,9 @@ npm run build # ✅ Successful (warning: chunk >500kB — not critical)
 - Admin UI with sync button → results display
 - Complete setup guide
 
-**How to use:**
-1. Get Google Sheets API key (follow [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md))
-2. Add to `.env`: `VITE_GOOGLE_SHEETS_API_KEY=AIza...`
-3. Navigate to `/admin` → Click "Sync from Google Sheets"
-4. Watch real-time status & see inserted counts
+**How to use (superseded — see [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md) for the current flow):**
+1. Navigate to `/admin` → Click "Google Sheets Sync" or "EFB Audit Sync"
+2. Watch real-time status & see inserted counts
 
 **Your sheet:** https://docs.google.com/spreadsheets/d/11veq_V1Eh4ZZ7PxDKnrc0GAJrXP2HGHbenAIXcFDgw8/
 

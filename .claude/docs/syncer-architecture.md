@@ -1,113 +1,130 @@
 # Syncer Architecture — Google Sheets → Supabase
 
-> **Canonical reference** for the financial data sync pipeline. Trust this file and the
+> **Canonical reference** for the financial + audit data sync pipelines. Trust this file and the
 > source code over `SYSTEM_REPORT.md` / `PROJECT_CONTEXT.md` where they conflict.
 >
-> Last verified against code: **2026-06-27**.
+> Last verified against code: **2026-07-01**.
 
-This document describes the **existing financial-data syncer** end-to-end (AppScript →
-Edge Function → browser pull → Supabase), how secrets/keys flow between the layers, the
-known deviations from the intended design, and — in §6 — the **now-built EFB Audit syncer**
-that reuses this pattern (sharing the transport, with an independent data path).
+This document describes the **financial** and **audit** syncers end-to-end (AppScript →
+Edge Function → browser pull → Supabase) and how secrets/keys flow between the layers. As of
+this revision both syncers are **fully separated**: each has its own pair of Edge Functions
+(`trigger-*-sync` / `pull-*-data`) rather than sharing one. The two pairs deliberately duplicate
+their auth/SA-token code instead of sharing a module — see §2 note.
 
 ---
 
 ## 1. High-level flow
 
-The sync is a **two-step flow** kicked off by an MC user from the Admin page
-([\_app.admin.tsx](../../src/routes/_app.admin.tsx) → "Google Sheets Sync" card → "Run Sync").
+Each sync is a **two-step flow** kicked off by an MC user from the Admin page
+([\_app.admin.tsx](../../src/routes/_app.admin.tsx) — "Google Sheets Sync" card for financial,
+"EFB Audit Sync" card for audit).
 
 ```
-┌─────────────┐   ① POST {mode,term,month}      ┌──────────────────────────┐
-│  Browser    │   + Supabase JWT (Bearer)       │  Supabase Edge Function  │
-│  (Admin UI) │ ───────────────────────────────▶│  trigger-sheet-sync      │
-│ useSheetSync│                                  │  • verify JWT            │
+┌─────────────┐   ① POST {mode,term,month}      ┌───────────────────────────┐
+│  Browser    │   + Supabase JWT (Bearer)       │  Supabase Edge Function   │
+│  (Admin UI) │ ───────────────────────────────▶│  trigger-financial-sync   │
+│useSheetSync │                                  │  (or trigger-audit-sync) │
+│ /useAuditSync│                                 │  • verify JWT             │
 └─────────────┘                                  │  • require mc_user role  │
-       │                                         │  • forward + secret      │
-       │                                         └────────────┬─────────────┘
-       │                                                      │ ② POST {secret,mode,term,month}
+       │                                         │  • forward + secret       │
+       │                                         └────────────┬──────────────┘
+       │                                                      │ ② POST {secret,sync,mode,term,month}
        │                                                      ▼
-       │                                         ┌──────────────────────────┐
+       │                                         ┌───────────────────────────┐
        │                                         │  Google AppScript (doPost)│
-       │                                         │  syncCombinedTallMaster   │
-       │                                         │  • read per-LC PnL/CFS tabs│
-       │                                         │  • write MASTER_COMBINED_  │
-       │                                         │    TALL master tab         │
-       │                                         └────────────┬─────────────┘
+       │                                         │  routes on params.sync:   │
+       │                                         │  "financial" → syncCombinedTallMasterSheet│
+       │                                         │  "audit"     → syncAuditConsolidationMasterSheet│
+       │                                         └────────────┬──────────────┘
        │   ③ {ok,rowsWritten,warnings}                        │
        │◀─────────────────────────────────────────────────────┘
        │
-       │   ④ POST (Supabase JWT)      ┌──────────────────────────┐
-       │◀────────────────────────────│  Supabase Edge Function  │
-       │   {ok, values[]}            │  pull-sheet-data         │
-       │                             │  • verify JWT            │
-       │                             │  • sign SA JWT           │
-       │                             │  • fetch private sheet   │
-       │                             └────────────┬─────────────┘
+       │   ④ POST (Supabase JWT)      ┌───────────────────────────┐
+       │◀────────────────────────────│  Supabase Edge Function    │
+       │   {ok, values[]}            │  pull-financial-data       │
+       │                             │  (or pull-audit-data)      │
+       │                             │  • verify JWT               │
+       │                             │  • sign SA JWT               │
+       │                             │  • fetch private sheet        │
+       │                             └────────────┬────────────────┘
        │                                          │ SA OAuth token
        │                                          ▼
        │                             ┌────────────────────────────┐
-       │                             │  Sheets API v4             │
-       │                             │  MASTER_COMBINED_TALL      │
-       │                             │  (private spreadsheet)     │
+       │                             │  Sheets API v4              │
+       │                             │  MASTER_COMBINED_TALL /     │
+       │                             │  MASTER_AUDIT_TALL          │
+       │                             │  (private spreadsheet)      │
        │                             └────────────────────────────┘
        ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Browser parses + aggregates per (entity, month) → upserts to Supabase:   │
-│    monthly_metrics · revenue_streams · cost_breakdown                     │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│  Browser parses + aggregates, then upserts to Supabase:                   │
+│    financial → monthly_metrics · revenue_streams · cost_breakdown         │
+│    audit     → audit_scores                                               │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Step 1 (Trigger / consolidate):** the browser asks the Edge Function to run the
-AppScript, which **rebuilds** the `MASTER_COMBINED_TALL` tab from the raw per-LC sheets.
+**Step 1 (Trigger / consolidate):** the browser asks the relevant `trigger-*-sync` Edge Function
+to run the AppScript, which **rebuilds** the corresponding master tab from the raw per-LC sheets
+(financial) or the "LEY Consolidation" tab (audit).
 
-**Step 2 (Pull / ingest):** once the AppScript returns `ok`, the browser calls the
-`pull-sheet-data` Edge Function (Supabase JWT required), which signs a Service Account JWT,
-exchanges it for a Google OAuth token, and fetches `MASTER_COMBINED_TALL` from the **private**
-master spreadsheet. The row data is returned to the browser, which aggregates and upserts to
-Postgres. The SA private key (`GOOGLE_SA_KEY`) is a Supabase secret — it never reaches the
-browser.
+**Step 2 (Pull / ingest):** once the AppScript returns `ok`, the browser calls the matching
+`pull-*-data` Edge Function (Supabase JWT required), which signs a Service Account JWT, exchanges
+it for a Google OAuth token, and fetches its hardcoded tab/range from the **private** master
+spreadsheet. The row data is returned to the browser, which parses, aggregates, and upserts to
+Postgres. The SA private key (`GOOGLE_SA_KEY`) is a Supabase secret shared by both `pull-*`
+functions — it never reaches the browser.
 
-Both steps are orchestrated by one hook call: [useSheetSync.ts](../../src/hooks/useSheetSync.ts) `sync()`.
+Financial: [useSheetSync.ts](../../src/hooks/useSheetSync.ts) `sync()`.
+Audit: [useAuditSync.ts](../../src/hooks/useAuditSync.ts) `sync()`.
 
 ---
 
 ## 2. Layer-by-layer
 
-### 2.1 Browser — `useSheetSync` hook
+### 2.1 Browser — `useSheetSync` / `useAuditSync` hooks
 
-File: [src/hooks/useSheetSync.ts](../../src/hooks/useSheetSync.ts)
+Files: [src/hooks/useSheetSync.ts](../../src/hooks/useSheetSync.ts),
+[src/hooks/useAuditSync.ts](../../src/hooks/useAuditSync.ts).
 
-- Exposes `sync({ mode, term?, month? })`, plus `loading`, `result`, `error`.
-- `SyncMode`:
+- `useSheetSync` exposes `sync({ mode, term?, month? })`, plus `loading`, `result`, `error`.
+  `SyncMode`:
   - `"current"` → auto-sets `month` to the first-of-this-month ISO date; AppScript syncs only the latest consolidated workbook.
   - `"term"` → requires `term` (e.g. `"25-26"`); AppScript syncs only that term's workbook.
   - `"all"` → every configured workbook.
-- Step 1: `fetch(`${VITE_SUPABASE_URL}/functions/v1/trigger-sheet-sync`)` with the user's
-  `session.access_token` as `Bearer`. Sends **only** `{ mode, term, month }` — no secrets.
-- Step 2: on `ok`, calls `syncSheetData()` and merges the webhook's `rowsWritten` /
-  `warnings` into the `ExtendedSyncResult` shown in the Admin UI.
+  - Step 1: `fetch(`${VITE_SUPABASE_URL}/functions/v1/trigger-financial-sync`)` with the user's
+    `session.access_token` as `Bearer`. Sends **only** `{ mode, term, month }` — no secrets.
+  - Step 2: on `ok`, calls `syncSheetData()` and merges the webhook's `rowsWritten` /
+    `warnings` into the `ExtendedSyncResult` shown in the Admin UI.
+- `useAuditSync` is the same two-step shape, calling `trigger-audit-sync` then `syncAuditData()`.
 
-### 2.2 Edge Function — `trigger-sheet-sync` (the secret-holding proxy)
+### 2.2 Edge Functions — `trigger-financial-sync` / `trigger-audit-sync` (secret-holding proxies)
 
-File: [supabase/functions/trigger-sheet-sync/index.ts](../../supabase/functions/trigger-sheet-sync/index.ts)
+Files: [supabase/functions/trigger-financial-sync/index.ts](../../supabase/functions/trigger-financial-sync/index.ts),
+[supabase/functions/trigger-audit-sync/index.ts](../../supabase/functions/trigger-audit-sync/index.ts).
 
-Deno function. Its entire job is to be a **trusted proxy** so the AppScript webhook URL and
-shared secret never reach the browser.
+Two separate Deno functions with **intentionally duplicated** bodies (a "full-separation"
+design — each file's header comment cross-references the other and says to keep them in sync
+manually rather than sharing a module). Each one's job is to be a **trusted proxy** so the
+AppScript webhook URL and shared secret never reach the browser.
 
 1. **Authenticate** — reads the `Authorization` header, constructs a Supabase client with
    the caller's JWT, calls `supabase.auth.getUser()`. No user → 401.
 2. **Authorize** — queries `user_roles` for the user; requires `mc_user`. Else → 403.
 3. **Forward** — POSTs `{ secret, sync, mode, term, month }` to the AppScript webhook URL.
-   `sync` defaults to `"financial"`; the audit flow sends `"audit"` so the same endpoint
-   can route both syncers.
+   `trigger-financial-sync` always sends `sync: "financial"`; `trigger-audit-sync` always sends
+   `sync: "audit"` — the same AppScript `doPost` routes both.
 4. **Relay** — returns the AppScript JSON `{ ok, rowsWritten, warnings }` (or `{ ok:false, error }`) verbatim to the browser, with CORS headers.
 
-### 2.3 Google AppScript — `MASTER_COMBINED_TALL` builder
+Both share the same `APPSCRIPT_WEBHOOK_URL` / `APPSCRIPT_SECRET` Supabase secrets.
 
-This is **not currently in the repo** (it lives in the Apps Script editor). A reference copy
-is committed at [appscript/master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs)
-— see §5 for why a committed copy matters and the secret-handling caveat.
+### 2.3 Google AppScript — master tab builder (shared project, routed `doPost`)
+
+This is **not currently in the repo** (it lives in the Apps Script editor). Reference copies are
+committed at [appscript/master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs)
+(financial) and [appscript/master-audit-tall-sync.gs](../../appscript/master-audit-tall-sync.gs)
+(audit) — see §5 for why a committed copy matters and the secret-handling caveat. Both live in
+the **same Apps Script project** (one project = one `doPost`) and share globals
+(`WEBHOOK_SECRET`, `MASTER_SPREADSHEET_ID`, `_parseDateHeaderCombTall`) — do not redeclare them.
 
 Entry point: `doPost(e)`
 
@@ -170,24 +187,22 @@ LC Equity, Cash Inflow, Cash Outflow, Net Cash Movement`.
 |   7 | `Description` | `Direct Revenue: iGV Partner Fee` | line label                                                     |
 |   8 | `Amount`      | `50000`                           | numeric LKR                                                    |
 
-> The committed reference is split across [master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs)
-> and [master-audit-tall-sync.gs](../../appscript/master-audit-tall-sync.gs), which is the
-> same layout used by the live Apps Script project. The shared globals are intentional.
+`syncAuditConsolidationMasterSheet` and its output schema are covered in §6.
 
-### 2.4 Browser — `syncSheetData` (the ingest)
+### 2.4 Browser — `syncSheetData` (financial ingest)
 
 Files: [sync.ts](../../src/integrations/googleSheets/sync.ts),
 [client.ts](../../src/integrations/googleSheets/client.ts),
 [mapper.ts](../../src/integrations/googleSheets/mapper.ts).
 
-1. **Fetch** — `client.ts` `fetchSheetData()` POSTs to the `pull-sheet-data` Edge Function
-   with the user's Supabase session Bearer token. The Edge Function authenticates as the
+1. **Fetch** — `client.ts` `fetchFinancialData()` POSTs to the `pull-financial-data` Edge
+   Function with the user's Supabase session Bearer token. The Edge Function authenticates as the
    Service Account and returns `{ ok: true, values: string[][] }` containing
    `MASTER_COMBINED_TALL!A1:I10000`. No API key is used; the master sheet is private.
 2. **Parse** — `mapper.ts` `parseRow()` turns each raw row into a `ParsedRow`:
    - Maps `LC` → entity name via `LC_CODE_TO_NAME`. Unknown LC → row dropped.
-   - Looks up `GFB_Code` in the **exact `GFB_DICTIONARY`** to get `{ category, functionCode,
-balanceField }`. (This replaced the old prefix/keyword heuristics — see note below.)
+   - Looks up `GFB_Code` in the **exact `GFB_DICTIONARY`** (via `getGfbMapping()`) to get
+     `{ category, functionCode, balanceField }`.
    - Categories: `revenue`, `cost`, `balance_sheet`, `cash_flow`, `unknown`.
 3. **Aggregate** — `sync.ts` groups rows by `(entityName, periodMonth)` and accumulates:
    - PnL: `totalRevenue`, `totalCost`, plus per-`FunctionCode` revenue/cost.
@@ -206,96 +221,96 @@ period_month)` (no unique constraint on the function dimension), one row per fun
 
 > **Heuristic → dictionary migration.** Older docs describe classification by GFB-code
 > _prefix_ (`7xxx`=PnL, `1xxx`=CFS) and function-code-by-keyword matching. The current
-> `mapper.ts` uses an **exact dictionary** (`GFB_DICTIONARY`) keyed on the full GFB code
-> (e.g. `7001-EX-RV-LC`). Treat `mapper.ts` as the source of truth.
+> `mapper.ts` uses an **exact dictionary** (`GFB_DICTIONARY`, looked up via `getGfbMapping()`)
+> keyed on the full GFB code (e.g. `7001-EX-RV-LC`). Treat `mapper.ts` as the source of truth.
+
+Audit ingest (`auditSync.ts`) is covered in §6.5.
 
 ---
 
 ## 3. Secret & key handling (trust model)
 
-| Secret / key                          | Stored where                                     |    Reaches browser?    | Purpose                                         |
-| ------------------------------------- | ------------------------------------------------ | :--------------------: | ----------------------------------------------- |
-| User Supabase JWT                     | Browser session                                  | n/a (originates there) | Authn/authz to both Edge Functions               |
-| `APPSCRIPT_WEBHOOK_URL`               | Edge Function secret (`trigger-sheet-sync`)      |           ❌           | Where the Edge Function calls AppScript          |
-| `APPSCRIPT_SECRET` / `WEBHOOK_SECRET` | Edge Function secret + AppScript Script Property |           ❌           | Shared secret AppScript checks in `doPost`       |
-| `GOOGLE_SA_KEY`                       | Supabase secret (`pull-sheet-data`)              |           ❌           | Service Account JSON for step-2 Sheets read      |
-| `VITE_SUPABASE_URL` / anon key        | Browser                                          |  ✅ (safe by design)   | RLS-enforced DB access                           |
-| `SUPABASE_SERVICE_ROLE_KEY`           | Server only (no `VITE_` prefix)                  |           ❌           | Admin server ops (not used by this sync)         |
-| `VITE_GOOGLE_SHEETS_API_KEY`          | `.env`, bundled into browser                     | ✅ (unused by sync)    | Only used by `fetchSheetDataMultiple` / `getSheetMetadata` — not called by the active sync path |
+| Secret / key                          | Stored where                                          |    Reaches browser?    | Purpose                                         |
+| ------------------------------------- | ------------------------------------------------------ | :--------------------: | ----------------------------------------------- |
+| User Supabase JWT                     | Browser session                                        | n/a (originates there) | Authn/authz to all four Edge Functions          |
+| `APPSCRIPT_WEBHOOK_URL`               | Edge Function secret (both `trigger-*-sync` functions) |           ❌           | Where the Edge Function calls AppScript          |
+| `APPSCRIPT_SECRET` / `WEBHOOK_SECRET` | Edge Function secret + AppScript Script Property       |           ❌           | Shared secret AppScript checks in `doPost`       |
+| `GOOGLE_SA_KEY`                       | Supabase secret (both `pull-*-data` functions)         |           ❌           | Service Account JSON for step-2 Sheets reads     |
+| `VITE_SUPABASE_URL` / anon key        | Browser                                                |  ✅ (safe by design)   | RLS-enforced DB access                           |
+| `SUPABASE_SERVICE_ROLE_KEY`           | Server only (no `VITE_` prefix)                        |           ❌           | Admin server ops (not used by this sync)         |
+| `VITE_GOOGLE_SHEETS_API_KEY`          | `.env`, bundled into browser                           | ✅ (unused by sync)    | Only used by `fetchSheetDataMultiple` / `getSheetMetadata` — not called by the active sync path |
 
 **Trust boundaries:**
 
-- The **step-1 trigger** (browser → AppScript) is gated behind the `trigger-sheet-sync` Edge
+- The **step-1 trigger** (browser → AppScript) is gated behind each `trigger-*-sync` Edge
   Function's JWT + `mc_user` check. The browser never sees the AppScript URL or shared secret.
-- The **step-2 read** is gated behind the `pull-sheet-data` Edge Function's JWT check (any
-  authenticated user). The master sheet is **private** — no public access. The SA key never
-  leaves the Edge Function runtime. The writes that result are still RLS-protected (only MC
-  can write finance tables).
+- The **step-2 read** is gated behind each `pull-*-data` Edge Function's JWT check.
+  `pull-financial-data` requires any authenticated user; `pull-audit-data` requires `mc_user` or
+  `efb_user`. The master sheet is **private** — no public access. The SA key never leaves the
+  Edge Function runtime. The writes that result are still RLS-protected (only MC can write
+  finance tables; MC/EFB can write `audit_scores`).
 
 ---
 
 ## 4. Known issues / deviations (sync-specific)
 
-1. **`pull-sheet-data` ignores the sheet ID and range params** — `client.ts` passes them
-   through for API compatibility, but the Edge Function always reads
-   `MASTER_COMBINED_TALL!A1:I10000` from the hardcoded `SHEET_ID`. This means `auditSync.ts`'s
-   call `fetchSheetData(MASTER_SHEET_ID, "MASTER_AUDIT_TALL!A1:H10000")` routes through
-   `pull-sheet-data` but receives `MASTER_COMBINED_TALL` data instead. The audit sync is not
-   yet live, so this is latent — but before activating it, either (a) extend `pull-sheet-data`
-   to accept an optional `range` param, or (b) build a dedicated `pull-audit-data` Edge Function.
-2. **Stale re-export in [googleSheets/index.ts](../../src/integrations/googleSheets/index.ts)** —
-   it re-exports `classifyRow` and `descriptionToFunctionCode`, which no longer exist in
-   `mapper.ts` (replaced by `getGfbMapping`). Harmless only as long as nothing imports them;
+1. **Stale re-export in [googleSheets/index.ts](../../src/integrations/googleSheets/index.ts)** —
+   it re-exports `classifyRow` and `descriptionToFunctionCode` from `./mapper`, which no longer
+   exist there (replaced by `getGfbMapping`). Harmless only as long as nothing imports them;
    clean up the export list.
-3. **`revenue_streams` / `cost_breakdown` delete-then-insert is not transactional** — a
+2. **`revenue_streams` / `cost_breakdown` delete-then-insert is not transactional** — a
    failure between delete and insert leaves a gap for that `(entity, month)` until the next
    successful sync.
+3. **Auth/SA-token logic is duplicated four ways** (`trigger-financial-sync` ↔
+   `trigger-audit-sync`, `pull-financial-data` ↔ `pull-audit-data`) by design (see §2.2, §6.4)
+   rather than shared via a common module. Any auth or token-signing fix must be applied to all
+   affected files manually — each file's header comment says as much.
+
+> The previously-documented issue where a single `pull-sheet-data` function ignored the
+> requested range and always returned financial data has been **resolved** by the full split
+> into `pull-financial-data` / `pull-audit-data`, each with its own hardcoded `SHEET_ID`/`RANGE`.
 
 ---
 
-## 5. Committed AppScript copy & secret externalization
+## 5. Committed AppScript copies & secret externalization
 
 The operational AppScript is mirrored at
-[appscript/master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs) so the
+[appscript/master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs) (financial)
+and [appscript/master-audit-tall-sync.gs](../../appscript/master-audit-tall-sync.gs) (audit) so the
 logic Step 2 depends on is **version-controlled and reviewable** instead of living only in the
-Apps Script editor. The committed copy:
+Apps Script editor. The committed copies:
 
-- Contains **only the live `doPost` version**.
-- Reads the shared secret from `PropertiesService.getScriptProperties().getProperty("WEBHOOK_SECRET")`
+- Contain **only the live `doPost` version** (shared across both files' project).
+- Read the shared secret from `PropertiesService.getScriptProperties().getProperty("WEBHOOK_SECRET")`
   **instead of a hardcoded string**, so no live secret is committed to git.
 
-**To deploy / sync the committed copy back to Apps Script:**
+**To deploy / sync the committed copies back to Apps Script:**
 
 1. Apps Script editor → Project Settings → Script Properties → add `WEBHOOK_SECRET` (and, if
    you externalize them, the spreadsheet IDs).
 2. Paste the committed `.gs` content, deploy as a Web App (Execute as: _me_; Access: _Anyone_),
-   and keep the deployment URL in the Edge Function's `APPSCRIPT_WEBHOOK_URL` secret.
+   and keep the deployment URL in both `trigger-*-sync` Edge Functions' `APPSCRIPT_WEBHOOK_URL` secret.
 
 ---
 
-## 6. EFB Audit syncer (BUILT)
+## 6. EFB Audit syncer (LIVE)
 
-> **Status:** implemented in code. The committed Apps Script copy already includes the shared
-> `sync` routing branch; the remaining manual step is to fill `AUDIT_SPREADSHEET_ID` in the
-> deployed Apps Script project and redeploy both surfaces — see §6.9.
+> **Status:** implemented and live — fully split from the financial syncer into its own
+> Edge Function pair (`trigger-audit-sync`, `pull-audit-data`).
 
 The audit syncer reuses the financial four-layer pattern but with **its own data path**
-(source tab, master tab, client module, hook, Admin card, destination table). It **deviates
-from the originally-planned "fully independent" design in one way**: per the requirement to
-keep it in the **same Apps Script project**, it **shares the single AppScript web-app
-endpoint and the single `trigger-sheet-sync` Edge Function**, routed by a `sync`
-discriminator (an Apps Script project can host only one `doPost`). See §6.8.
+(source tab, master tab, client function, hook, Admin card, destination table).
 
 ### 6.1 Flow
 
 ```
 Admin "Run Audit Sync"  (MC only)
-   → useAuditSync.sync()        POST { sync:"audit" } + JWT
-   → trigger-sheet-sync         verify JWT + mc_user → forward { secret, sync:"audit", … }
+   → useAuditSync.sync()        POST { mode, term, month } + JWT
+   → trigger-audit-sync         verify JWT + mc_user → forward { secret, sync:"audit", … }
    → AppScript doPost           routes on params.sync → syncAuditConsolidationMasterSheet()
         reads "LEY Consolidation" → rebuilds MASTER_AUDIT_TALL (full overwrite)
    → ok { rowsWritten }
-   → auditSync.ts syncAuditData()   read MASTER_AUDIT_TALL via Sheets API → audit_scores
+   → auditSync.ts syncAuditData()   fetchAuditData() → pull-audit-data → audit_scores
 ```
 
 ### 6.2 Source structure — "LEY Consolidation" tab
@@ -320,8 +335,7 @@ Lives in the **same Apps Script project** as the financial builder and **reuses 
 — `WEBHOOK_SECRET`, `MASTER_SPREADSHEET_ID`, `_parseDateHeaderCombTall`. **Do not redeclare
 those** (one shared namespace → redeclaration error).
 
-One project = one `doPost`, so route on `params.sync`. The committed reference already has
-this branch; keep the deployed Apps Script project aligned with it:
+One project = one `doPost`, so route on `params.sync`:
 
 ```js
 var result =
@@ -333,9 +347,8 @@ var result =
 `syncAuditConsolidationMasterSheet(filterMonth?)` opens `AUDIT_SPREADSHEET_ID` →
 `LEY Consolidation`, parses the three blocks (`_extractAuditConsolidation`), merges per
 `(LC, month)`, and writes `MASTER_AUDIT_TALL` into `MASTER_SPREADSHEET_ID` (full overwrite).
-Config constants (not secrets): `AUDIT_SPREADSHEET_ID` (**must be filled in**),
-`AUDIT_SOURCE_TAB = "LEY Consolidation"`, `AUDIT_MASTER_TAB = "MASTER_AUDIT_TALL"`,
-`AUDIT_TERM = "25-26"`.
+Config constants (not secrets): `AUDIT_SPREADSHEET_ID`, `AUDIT_SOURCE_TAB = "LEY Consolidation"`,
+`AUDIT_MASTER_TAB = "MASTER_AUDIT_TALL"`, `AUDIT_TERM = "25-26"`.
 
 **Output schema** (`MASTER_AUDIT_TALL`; the contract `auditSync.ts` depends on), one row per
 `(LC, month)`:
@@ -351,36 +364,41 @@ Config constants (not secrets): `AUDIT_SPREADSHEET_ID` (**must be filled in**),
 |   6 | `Audit_Score`         | `0.93`          | `score` (**raw fraction, no scaling**)          |
 |   7 | `Quality_Improvement` | `0.06`          | **parsed but not stored** (derived in UI)       |
 
-### 6.4 Edge Function — shared, routed by `sync`
+### 6.4 Edge Functions — `trigger-audit-sync` / `pull-audit-data`
 
-[trigger-sheet-sync/index.ts](../../supabase/functions/trigger-sheet-sync/index.ts) forwards
-`sync: body.sync ?? "financial"`. Audit calls send `{ sync:"audit" }`; the financial flow
-omits `sync` → defaults to `"financial"` (unchanged). Same JWT + `mc_user` gate ⇒ the audit
-trigger is **MC-only** server-side.
+[trigger-audit-sync/index.ts](../../supabase/functions/trigger-audit-sync/index.ts) forwards
+`sync: "audit"` to the shared AppScript endpoint; same JWT + `mc_user` gate as
+`trigger-financial-sync` ⇒ the audit trigger is **MC-only** server-side. Its body is duplicated
+from `trigger-financial-sync/index.ts` on purpose (full-separation design) — the file's header
+comment says to keep the two in sync manually.
+
+[pull-audit-data/index.ts](../../supabase/functions/pull-audit-data/index.ts) reads
+`MASTER_AUDIT_TALL!A1:H10000` from the hardcoded `SHEET_ID` using the shared `GOOGLE_SA_KEY`
+Service Account. Any `mc_user` or `efb_user` may call it (read-only). Its auth/SA-token block is
+duplicated from `pull-financial-data/index.ts` on purpose — same manual-sync caveat.
 
 ### 6.5 Client pull — `auditSync.ts`
 
 File: [src/integrations/googleSheets/auditSync.ts](../../src/integrations/googleSheets/auditSync.ts).
 
-- `fetchSheetData(MASTER_SHEET_ID, "MASTER_AUDIT_TALL!A1:H10000")` — reuses the finance
-  client, which now routes through `pull-sheet-data`. **Known limitation:** the Edge Function
-  currently ignores the range param and always returns `MASTER_COMBINED_TALL` data. Fix
-  required before the audit sync can go live — see §4 issue 1.
+- Calls `fetchAuditData()` (`client.ts`), which POSTs to `pull-audit-data` — a dedicated Edge
+  Function reading only `MASTER_AUDIT_TALL`, not shared with the financial pull.
 - **`AUDIT_LC_TO_CODE`** normalizes the inconsistent audit labels (some are entity _codes_
   `CC/CN/CS/NSBM/SLIIT/NIBM/USJ`, some are _names_ `Kandy/Rajarata/Ruhuna` whose codes differ
   `KDY/RAJ/RUH`) → entity `code` → `entity_id`. The dashboard covers **10 LCs**.
 - Stores values **as-is**: `score` = fraction, `remarks` = Pass/Fail, `max_score` = `null`,
   `quarter` = `null`. QI not stored.
-- **Delete-then-insert per `(entity_id, period_month)`** — `audit_scores` has no unique
-  constraint to upsert on (only the non-unique `idx_audit_entity_period`).
+- **Upsert on `(entity_id, period_month)`** — a single `upsert()` call with
+  `onConflict: "entity_id,period_month"` (no delete-then-insert loop; `audit_scores` has a
+  unique constraint on that pair).
 
 ### 6.6 Hook + Admin UI
 
 - [src/hooks/useAuditSync.ts](../../src/hooks/useAuditSync.ts) — two-step (trigger
-  `sync:"audit"` → `syncAuditData()`), parallel to `useSheetSync`.
+  `trigger-audit-sync` → `syncAuditData()`), parallel to `useSheetSync`.
 - [\_app.admin.tsx](../../src/routes/_app.admin.tsx) **"EFB Audit Sync"** card → **Run Audit
   Sync** button. MC-only at **two layers**: the Admin route's `beforeLoad` redirects non-MC
-  users, and the Edge Function rejects non-`mc_user` with 403.
+  users, and the `trigger-audit-sync` Edge Function rejects non-`mc_user` with 403.
 
 ### 6.7 Audit page UI
 
@@ -390,24 +408,31 @@ LC × month, and renders three sections in the system design language:
 - **Audit Results** — matrix; Pass → green `CheckCircle2`, Fail → red `XCircle`.
 - **Audit Scores** — per-LC **line chart** (trend + entity comparison).
 - **Quality Improvement** — **line chart** of the derived MoM Δ.
-- Date filter **floored at July 2025** (`AUDIT_MIN_DATE`) via the new opt-in `minDate` prop on
+- Date filter **floored at July 2025** (`AUDIT_MIN_DATE`) via the opt-in `minDate` prop on
   the shared [Filters](../../src/components/Filters.tsx) (other pages unaffected).
 
 ### 6.8 Deviations from the original "fully independent" plan
 
-| Original plan                                             | As built                                              | Why                                                                                                                                              |
-| --------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Separate Apps Script project                              | **Same project**, new file, `doPost` routed by `sync` | Requirement: keep it in the same project; one project allows only one `doPost`.                                                                  |
-| Separate `trigger-audit-sync` Edge Function w/ own secret | **Shared `trigger-sheet-sync`**, routed by `sync`     | Same single AppScript endpoint/secret; less infra.                                                                                               |
-| New folder paralleling `googleSheets/`                    | **Single `auditSync.ts`**                             | Audit ingest is one tab → one file is enough.                                                                                                    |
-| Decide if `efb_user` may trigger                          | **MC-only** (Admin guard + Edge Function)             | `audit_scores` is EFB-writable per RBAC, but the trigger was scoped to MC by request. Loosen the Edge Function role check if EFB should trigger. |
+| Original plan                                              | As built                                                        | Why                                                                                                                                              |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Separate Apps Script project                                | **Same project**, new file, `doPost` routed by `sync`           | Requirement: keep it in the same project; one project allows only one `doPost`.                                                                  |
+| Separate `trigger-audit-sync` Edge Function w/ own secret    | **Built as planned** — `trigger-audit-sync` is fully separate, sharing only the `APPSCRIPT_WEBHOOK_URL`/`APPSCRIPT_SECRET` secrets | Full separation was completed after the initial shared-function version; see history below. |
+| New folder paralleling `googleSheets/`                       | **Single `auditSync.ts`**                                        | Audit ingest is one tab → one file is enough.                                                                                                    |
+| Decide if `efb_user` may trigger                              | **MC-only** trigger (Admin guard + Edge Function); MC/EFB may *pull/read* | `audit_scores` is EFB-writable per RBAC, but the trigger was scoped to MC by request. Loosen the Edge Function role check if EFB should trigger. |
+
+> **History note:** an earlier revision of this pipeline routed both financial and audit
+> triggers/pulls through single shared `trigger-sheet-sync` / `pull-sheet-data` Edge Functions
+> (discriminated by a `sync` field on trigger, and with the pull function hardcoded to
+> financial data only — the audit pull had no way to select `MASTER_AUDIT_TALL`). That has since
+> been replaced by the fully-separated four-function design described throughout this doc.
 
 ### 6.9 To go live (manual, outside code)
 
-1. Fill **`AUDIT_SPREADSHEET_ID`** in `master-audit-tall-sync.gs`.
+1. Fill **`AUDIT_SPREADSHEET_ID`** in `master-audit-tall-sync.gs` (if not already set).
 2. Redeploy the AppScript — **Manage deployments → edit → New version** (keeps the same
    `/exec` URL).
-3. Redeploy the Edge Function — `supabase functions deploy trigger-sheet-sync`.
+3. Redeploy the Edge Functions — `supabase functions deploy trigger-audit-sync` and
+   `supabase functions deploy pull-audit-data`.
 
 Then **Admin → Run Audit Sync** runs the whole chain and the EFB Audit tab populates.
 
@@ -415,18 +440,20 @@ Then **Admin → Run Audit Sync** runs the whole chain and the EFB Audit tab pop
 
 ## 7. File index
 
-| Layer                                    | File                                                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Admin UI (buttons, results)              | [src/routes/\_app.admin.tsx](../../src/routes/_app.admin.tsx)                                          |
-| Orchestration hook (finance)             | [src/hooks/useSheetSync.ts](../../src/hooks/useSheetSync.ts)                                           |
-| Edge Function — step-1 trigger (shared)  | [supabase/functions/trigger-sheet-sync/index.ts](../../supabase/functions/trigger-sheet-sync/index.ts) |
-| Edge Function — step-2 SA sheet read     | [supabase/functions/pull-sheet-data/index.ts](../../supabase/functions/pull-sheet-data/index.ts)       |
-| AppScript — finance (committed copy)     | [appscript/master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs)                 |
-| Sheets API client (shared)               | [src/integrations/googleSheets/client.ts](../../src/integrations/googleSheets/client.ts)               |
-| Row parser + GFB dictionary              | [src/integrations/googleSheets/mapper.ts](../../src/integrations/googleSheets/mapper.ts)               |
-| Aggregate + upsert (finance)             | [src/integrations/googleSheets/sync.ts](../../src/integrations/googleSheets/sync.ts)                   |
-| Public exports                           | [src/integrations/googleSheets/index.ts](../../src/integrations/googleSheets/index.ts)                 |
-| **Audit — AppScript (committed copy)**   | [appscript/master-audit-tall-sync.gs](../../appscript/master-audit-tall-sync.gs)                       |
-| **Audit — client pull → `audit_scores`** | [src/integrations/googleSheets/auditSync.ts](../../src/integrations/googleSheets/auditSync.ts)         |
-| **Audit — orchestration hook**           | [src/hooks/useAuditSync.ts](../../src/hooks/useAuditSync.ts)                                           |
-| **Audit — page UI (matrix + charts)**    | [src/routes/\_app.audit.tsx](../../src/routes/_app.audit.tsx)                                          |
+| Layer                                    | File                                                                                                       |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Admin UI (buttons, results)              | [src/routes/\_app.admin.tsx](../../src/routes/_app.admin.tsx)                                                 |
+| Orchestration hook (finance)             | [src/hooks/useSheetSync.ts](../../src/hooks/useSheetSync.ts)                                                  |
+| Orchestration hook (audit)               | [src/hooks/useAuditSync.ts](../../src/hooks/useAuditSync.ts)                                                  |
+| Edge Function — financial trigger        | [supabase/functions/trigger-financial-sync/index.ts](../../supabase/functions/trigger-financial-sync/index.ts) |
+| Edge Function — financial SA sheet read  | [supabase/functions/pull-financial-data/index.ts](../../supabase/functions/pull-financial-data/index.ts)      |
+| Edge Function — audit trigger            | [supabase/functions/trigger-audit-sync/index.ts](../../supabase/functions/trigger-audit-sync/index.ts)       |
+| Edge Function — audit SA sheet read      | [supabase/functions/pull-audit-data/index.ts](../../supabase/functions/pull-audit-data/index.ts)              |
+| AppScript — finance (committed copy)     | [appscript/master-combined-tall-sync.gs](../../appscript/master-combined-tall-sync.gs)                        |
+| AppScript — audit (committed copy)       | [appscript/master-audit-tall-sync.gs](../../appscript/master-audit-tall-sync.gs)                              |
+| Sheets API client (shared)               | [src/integrations/googleSheets/client.ts](../../src/integrations/googleSheets/client.ts)                      |
+| Row parser + GFB dictionary              | [src/integrations/googleSheets/mapper.ts](../../src/integrations/googleSheets/mapper.ts)                      |
+| Aggregate + upsert (finance)             | [src/integrations/googleSheets/sync.ts](../../src/integrations/googleSheets/sync.ts)                          |
+| Aggregate + upsert (audit)               | [src/integrations/googleSheets/auditSync.ts](../../src/integrations/googleSheets/auditSync.ts)                |
+| Public exports                           | [src/integrations/googleSheets/index.ts](../../src/integrations/googleSheets/index.ts)                        |
+| Audit page UI (matrix + charts)          | [src/routes/\_app.audit.tsx](../../src/routes/_app.audit.tsx)                                                 |

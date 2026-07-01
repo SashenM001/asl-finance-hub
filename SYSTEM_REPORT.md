@@ -47,13 +47,14 @@ graph TB
         Postgres["PostgreSQL Database<br/>9 Tables + RLS"]
     end
 
-    subgraph Edge ["Supabase Edge Function"]
-        Trigger["trigger-sheet-sync<br/>(JWT + mc_user check)"]
+    subgraph Edge ["Supabase Edge Functions"]
+        Trigger["trigger-financial-sync / trigger-audit-sync<br/>(JWT + mc_user check)"]
+        Pull["pull-financial-data / pull-audit-data<br/>(JWT + Service Account)"]
     end
 
     subgraph External ["External Data"]
         AppScript["Google AppScript<br/>doPost webhook"]
-        GSheets["Google Sheets<br/>MASTER_COMBINED_TALL"]
+        GSheets["Google Sheets<br/>MASTER_COMBINED_TALL / MASTER_AUDIT_TALL (private)"]
     end
 
     Login -->|signInWithPassword| AuthSvc
@@ -63,8 +64,10 @@ graph TB
     AppShell -->|① Admin: Run Sync + JWT| Trigger
     Trigger -->|② forward + secret| AppScript
     AppScript -->|rebuild master tab| GSheets
-    GSheets -->|③ Sheets API v4 read| Pages
-    Pages -->|④ aggregate + upsert| PostgREST
+    Pages -->|③ POST + JWT| Pull
+    Pull -->|SA OAuth read| GSheets
+    Pull -->|④ rows| Pages
+    Pages -->|⑤ aggregate + upsert| PostgREST
 ```
 
 > See [`.claude/docs/syncer-architecture.md`](.claude/docs/syncer-architecture.md) for the
@@ -76,7 +79,7 @@ graph TB
 |----------|-----------|
 | **SPA (not SSR)** | Internal tool; no SEO needed. Simpler deployment. |
 | **Supabase RLS** | Row-Level Security policies at the database level — even if the UI is bypassed, data isolation holds. |
-| **Two-step server-gated sync** | Sync is a two-step flow: (1) the browser asks the `trigger-sheet-sync` Edge Function (JWT + `mc_user` gate) to run an AppScript webhook that rebuilds the `MASTER_COMBINED_TALL` tab; (2) the browser reads that tab via the public Sheets API and upserts to Postgres. The webhook URL + secret stay server-side; only the step-2 read uses a browser-exposed API key. |
+| **Two-step server-gated sync** | Sync is a two-step flow, run separately for financial and audit data: (1) the browser asks the `trigger-financial-sync` / `trigger-audit-sync` Edge Function (JWT + `mc_user` gate) to run an AppScript webhook that rebuilds the corresponding master tab; (2) the browser reads that tab via the matching `pull-financial-data` / `pull-audit-data` Edge Function, which authenticates as a Service Account since the master sheet is private. The webhook URL/secret and SA key all stay server-side — no browser-exposed API key is used. |
 | **Proxy-based Supabase client** | Lazy initialization avoids crashes if env vars are missing during build. |
 | **First-user-as-admin** | The `handle_new_user()` trigger auto-assigns `mc_user` role to the first signup, bootstrapping the system. |
 
@@ -308,10 +311,10 @@ graph TD
 
 ```mermaid
 flowchart LR
-    U["Admin UI<br/>useSheetSync"] -->|① POST mode/term/month + JWT| EF["Edge Function<br/>trigger-sheet-sync<br/>JWT + mc_user gate"]
+    U["Admin UI<br/>useSheetSync"] -->|① POST mode/term/month + JWT| EF["Edge Function<br/>trigger-financial-sync<br/>JWT + mc_user gate"]
     EF -->|② forward + secret| AS["AppScript doPost<br/>rebuild master tab"]
     AS --> GS["Google Sheet<br/>MASTER_COMBINED_TALL"]
-    GS -->|③ SA OAuth read| PF["Edge Function<br/>pull-sheet-data<br/>Service Account auth"]
+    GS -->|③ SA OAuth read| PF["Edge Function<br/>pull-financial-data<br/>Service Account auth"]
     PF -->|④ {ok,values}| B["client.ts<br/>fetchSheetData()"]
     B --> C["mapper.ts<br/>parseRow() → GFB_DICTIONARY<br/>LC_CODE_TO_NAME"]
     C --> D["sync.ts<br/>group by (entity, month)<br/>aggregate, derive NPM/liquidity"]
@@ -538,7 +541,7 @@ full `GFB_DICTIONARY`.
 | 3 | `budget_actual`, `audit_scores`, `monthly_review` tables are empty | Budget, Audit, and Review pages show "No data" |
 | 4 | Rankings, Health Index, OD Score are always 0 | Home page shows #0 for rankings — needs manual data or AI formula |
 | 5 | No mobile hamburger menu | Sidebar hidden on mobile, no way to navigate |
-| 6 | ~~Google Sheets sync is partly client-side~~ ✅ **Resolved** | Both steps are now server-gated: step 1 via `trigger-sheet-sync` (JWT + `mc_user`), step 2 via `pull-sheet-data` (JWT + Service Account — master sheet is private). `VITE_GOOGLE_SHEETS_API_KEY` is no longer on the active sync path. |
+| 6 | ~~Google Sheets sync is partly client-side~~ ✅ **Resolved** | Both steps are now server-gated, with financial and audit fully split into separate Edge Function pairs: step 1 via `trigger-financial-sync` / `trigger-audit-sync` (JWT + `mc_user`), step 2 via `pull-financial-data` / `pull-audit-data` (JWT + Service Account — master sheet is private). `VITE_GOOGLE_SHEETS_API_KEY` is no longer on the active sync path. |
 
 ### Low
 
@@ -567,7 +570,7 @@ full `GFB_DICTIONARY`.
 
 | Task | Effort | Risk Addressed |
 |------|--------|---------------|
-| **Finish moving sync server-side** | ✅ Done | Both steps are now server-gated. Step 1: `trigger-sheet-sync` Edge Function (JWT + `mc_user`). Step 2: `pull-sheet-data` Edge Function (JWT + Service Account SA key). Master sheet is private. Remaining optional item: schedule via cron. |
+| **Finish moving sync server-side** | ✅ Done | Both steps are now server-gated, split into financial/audit Edge Function pairs. Step 1: `trigger-financial-sync` / `trigger-audit-sync` (JWT + `mc_user`). Step 2: `pull-financial-data` / `pull-audit-data` (JWT + Service Account SA key). Master sheet is private. Remaining optional item: schedule via cron. |
 | **Rate limiting on auth** | 1 day | Prevent brute-force attacks on login. Configure Supabase Auth rate limits |
 | **Fix admin `beforeLoad`** | 0.5 day | Replace with component-level guard like `_app.tsx` |
 | **Audit logging** | 2 days | Log all role changes, entity assignments, and data modifications with timestamps and actor |
@@ -640,7 +643,7 @@ full `GFB_DICTIONARY`.
 
 | Concern | Current State | Recommendation |
 |---------|--------------|----------------|
-| Google Sheets API key in bundle | ✅ **No longer on active sync path** — `VITE_GOOGLE_SHEETS_API_KEY` remains in `client.ts` for `fetchSheetDataMultiple`/`getSheetMetadata` but neither is called by the financial or audit sync. Master-sheet read now goes through `pull-sheet-data` Edge Function with Service Account. | Remove the env var if `fetchSheetDataMultiple` / `getSheetMetadata` are confirmed unused. |
+| Google Sheets API key in bundle | ✅ **No longer on active sync path** — `VITE_GOOGLE_SHEETS_API_KEY` remains in `client.ts` for `fetchSheetDataMultiple`/`getSheetMetadata` but neither is called by the financial or audit sync. Master-sheet reads now go through the `pull-financial-data` / `pull-audit-data` Edge Functions with a Service Account. | Remove the env var if `fetchSheetDataMultiple` / `getSheetMetadata` are confirmed unused. |
 | Service Role key | ✅ Not in client bundle (no `VITE_` prefix) | Keep it this way |
 | Supabase publishable key | ✅ Safe to expose (designed for client use) | OK |
 | Local storage session tokens | ✅ Standard Supabase behavior | OK |
