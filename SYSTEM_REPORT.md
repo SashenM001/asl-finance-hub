@@ -241,13 +241,17 @@ erDiagram
 - **`app_role`**: `lc_user` | `mc_user` | `efb_user`
 - **`function_code`** (current frontend list, source of truth = `src/lib/finance.ts`):
   `iGV` | `iGT` | `oGV` | `oGT` | `ELD` | `EwA` | `Miscellaneous` | `NMF` | `Conference` |
-  `National Conference Delegation`
+  `National Conference Delegation` | `Project Management`
 
 > [!WARNING]
 > **Enum drift:** the original migration defined `function_code` as only 7 values
-> (`iGV, iGT, oGV, oGT, ELD, EwA, BD`). The 10-value list above is newer; the live Supabase
-> enum must have been altered out-of-band. Treat `src/lib/finance.ts` as the UI source of
-> truth and verify the live DB enum before relying on the migration file.
+> (`iGV, iGT, oGV, oGT, ELD, EwA, BD`). The live Supabase enum (see
+> `src/integrations/supabase/types.ts`, regenerated via `supabase gen types`) now has 16
+> values: the 11-value frontend list above, plus legacy unused values `BD`, `iGTa`, `iGTe`,
+> `oGTa`, `oGTe` left over from schema evolution. `Project Management` was added
+> 2026-07-01 (migration `20260701000000_add_project_management_function_code.sql`) to split
+> Project Management income/costs out of `Miscellaneous`. Treat `src/lib/finance.ts` as the
+> UI source of truth and `types.ts` as the source of truth for the live DB enum.
 
 ### Indexes
 
@@ -350,8 +354,8 @@ flowchart LR
 ### Function Code Extraction
 
 The dictionary assigns each revenue/cost code a `FunctionCode` directly. The function set is
-the 10-value list in §3 (`iGV, iGT, oGV, oGT, ELD, EwA, Miscellaneous, NMF, Conference,
-National Conference Delegation`) — **not** the old 7-value keyword scheme. See
+the 11-value list in §3 (`iGV, iGT, oGV, oGT, ELD, EwA, Miscellaneous, NMF, Conference,
+National Conference Delegation, Project Management`) — **not** the old 7-value keyword scheme. See
 [`src/integrations/googleSheets/mapper.ts`](src/integrations/googleSheets/mapper.ts) for the
 full `GFB_DICTIONARY`.
 

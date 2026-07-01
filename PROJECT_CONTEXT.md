@@ -55,9 +55,10 @@ Colombo Central, Colombo North, Colombo South, Kandy, USJ, NSBM, Ruhuna, Rajarat
 | `monthly_review` | Pass/fail tracker | entity_id, period_month, status, remarks, reviewed_by |
 
 **Function Codes** (current — source of truth `src/lib/finance.ts`): `iGV`, `iGT`, `oGV`,
-`oGT`, `ELD`, `EwA`, `Miscellaneous`, `NMF`, `Conference`, `National Conference Delegation`.
-The original 7-value migration enum (`…EwA, BD`) is stale — see the enum-drift note in
-[`CLAUDE.md`](CLAUDE.md).
+`oGT`, `ELD`, `EwA`, `Miscellaneous`, `NMF`, `Conference`, `National Conference Delegation`,
+`Project Management`. The live DB `function_code` enum (`src/integrations/supabase/types.ts`)
+additionally carries legacy unused values (`BD`, `iGTa`, `iGTe`, `oGTa`, `oGTe`) left over from
+schema evolution — see the enum-drift note in [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
@@ -379,7 +380,7 @@ If your Google Sheet isn't ready yet, I can create seed data instead:
 **Filters:**
 1. **Entity** — Dropdown (hidden for LC, not disabled)
 2. **Date Range** — From/To date pickers
-3. **Function** — Multi-select (iGV, iGT, oGV, oGT, ELD, EwA, BD)
+3. **Function** — Multi-select (`FUNCTION_CODES` from `src/lib/finance.ts`: iGV, iGT, oGV, oGT, ELD, EwA, Miscellaneous, NMF, Conference, National Conference Delegation, Project Management)
 4. **Term** — Dropdown (e.g., AM 2025 / PM 2025 / AM 2026)
 
 **Behavior:**
