@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       audit_scores: {
@@ -406,6 +431,7 @@ export type Database = {
         | "NMF"
         | "Miscellaneous"
         | "National Conference Delegation"
+        | "Project Management"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -531,6 +557,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["lc_user", "mc_user", "efb_user"],
@@ -550,6 +579,7 @@ export const Constants = {
         "NMF",
         "Miscellaneous",
         "National Conference Delegation",
+        "Project Management",
       ],
     },
   },

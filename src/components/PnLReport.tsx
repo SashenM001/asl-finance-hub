@@ -83,9 +83,6 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
       return res;
     };
 
-    const zeroMap: YearMap = {};
-    selectedYears.forEach(y => (zeroMap[y] = 0));
-
     // Direct Profit / Loss
     const iGvIncome = getRevByYear("iGV");
     const iGtIncome = getRevByYear("iGT");
@@ -104,7 +101,7 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
     // Total Income & Expenses
     const ewaIncome = getRevByYear("EwA");
     const confIncome = getRevByYear("Conference");
-    const pmIncome = zeroMap;
+    const pmIncome = getRevByYear("Project Management");
     const miscIncome = getRevByYear("Miscellaneous");
     
     const totalIncome = sumMaps(eldIncome, ewaIncome, confIncome, pmIncome, miscIncome);
@@ -113,7 +110,7 @@ export function PnLReport({ revenue, costs, isSplit = false }: PnLReportProps) {
     const confExpenses = getCostByYear("Conference");
     const natConfExpenses = getCostByYear("National Conference Delegation");
     const nmfExpenses = getCostByYear("NMF");
-    const pmExpenses = zeroMap;
+    const pmExpenses = getCostByYear("Project Management");
     const miscExpenses = getCostByYear("Miscellaneous");
 
     const totalExpenses = sumMaps(eldExpenses, ewaExpenses, confExpenses, natConfExpenses, nmfExpenses, pmExpenses, miscExpenses);

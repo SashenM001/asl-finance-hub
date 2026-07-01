@@ -42,7 +42,8 @@ export type FunctionCode =
   | "Miscellaneous"
   | "NMF"
   | "Conference"
-  | "National Conference Delegation";
+  | "National Conference Delegation"
+  | "Project Management";
 
 export const FUNCTION_CODES: FunctionCode[] = [
   "iGV",
@@ -55,6 +56,7 @@ export const FUNCTION_CODES: FunctionCode[] = [
   "NMF",
   "Conference",
   "National Conference Delegation",
+  "Project Management",
 ];
 
 export const FUNCTION_COLORS: Record<FunctionCode, string> = {
@@ -68,6 +70,7 @@ export const FUNCTION_COLORS: Record<FunctionCode, string> = {
   NMF: "var(--aiesec-yellow)",
   Conference: "var(--aiesec-blue)",
   "National Conference Delegation": "var(--aiesec-blue)",
+  "Project Management": "var(--aiesec-gray)",
 };
 
 export async function fetchEntities(): Promise<Entity[]> {

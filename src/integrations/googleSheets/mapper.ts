@@ -156,11 +156,11 @@ const GFB_DICTIONARY: Record<string, MappingDefinition> = {
   "7302-MG-RV-LC": { category: "revenue", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (National+Local) Partner Fee
   "7303-MG-RV-LC": { category: "revenue", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (International) Participant Fee
   "7304-MG-RV-LC": { category: "revenue", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Revenue: Conference and Meetings (International) Partner Fee
-  "7305-MG-RV-LC": { category: "revenue", functionCode: "Miscellaneous", balanceField: null }, // LC | Project Mgt Revenue: Digital Engagement Participant Fee
-  "7306-MG-RV-LC": { category: "revenue", functionCode: "Miscellaneous", balanceField: null }, // LC | Project Mgt Revenue: Digital Engagement Partner Fee
-  "7307-MG-RV-LC": { category: "revenue", functionCode: "Miscellaneous", balanceField: null }, // LC | Project Mgt Revenue: Other Portfolio & Initiatives Partner Fee
-  "7308-MG-RV-LC": { category: "revenue", functionCode: "Miscellaneous", balanceField: null }, // LC | Project Mgt Revenue: Other Portfolio & Initiatives Participant Fee
-  "7309-MG-RV-LC": { category: "revenue", functionCode: "Miscellaneous", balanceField: null }, // LC | Project Mgt Revenue: Grants, Donations, Subsidies
+  "7305-MG-RV-LC": { category: "revenue", functionCode: "Project Management", balanceField: null }, // LC | Project Mgt Revenue: Digital Engagement Participant Fee
+  "7306-MG-RV-LC": { category: "revenue", functionCode: "Project Management", balanceField: null }, // LC | Project Mgt Revenue: Digital Engagement Partner Fee
+  "7307-MG-RV-LC": { category: "revenue", functionCode: "Project Management", balanceField: null }, // LC | Project Mgt Revenue: Other Portfolio & Initiatives Partner Fee
+  "7308-MG-RV-LC": { category: "revenue", functionCode: "Project Management", balanceField: null }, // LC | Project Mgt Revenue: Other Portfolio & Initiatives Participant Fee
+  "7309-MG-RV-LC": { category: "revenue", functionCode: "Project Management", balanceField: null }, // LC | Project Mgt Revenue: Grants, Donations, Subsidies
   "7501-NE-RV-LC": { category: "revenue", functionCode: "Miscellaneous", balanceField: null }, // LC | Miscellaneous Revenue
 
   // === PNL: COSTS ===
@@ -191,9 +191,9 @@ const GFB_DICTIONARY: Record<string, MappingDefinition> = {
   "7706-EA-CO-LC": { category: "cost", functionCode: "EwA", balanceField: null }, // LC | EwA Costs: Local Volunteer
   "7901-MG-CO-LC": { category: "cost", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Costs: Conference and Meetings (National+Local)
   "7902-MG-CO-LC": { category: "cost", functionCode: "Conference", balanceField: null }, // LC | Project Mgt Costs: Conference and Meetings (International)
-  "7903-MG-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Project Mgt Costs: Digital Engagement
-  "7904-MG-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Project Mgt Costs: Other Portfolio & Initiatives
-  "7905-MG-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Project Mgt Costs: Partnership Logistics
+  "7903-MG-CO-LC": { category: "cost", functionCode: "Project Management", balanceField: null }, // LC | Project Mgt Costs: Digital Engagement
+  "7904-MG-CO-LC": { category: "cost", functionCode: "Project Management", balanceField: null }, // LC | Project Mgt Costs: Other Portfolio & Initiatives
+  "7905-MG-CO-LC": { category: "cost", functionCode: "Project Management", balanceField: null }, // LC | Project Mgt Costs: Partnership Logistics
   "8001-FN-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Bank Fees
   "8002-FN-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Taxes
   "8101-OH-CO-LC": { category: "cost", functionCode: "Miscellaneous", balanceField: null }, // LC | Overhead Costs: (Office)
